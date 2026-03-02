@@ -1,0 +1,13 @@
+{
+  "name": "harnix",
+  "version": "0.1.0",
+  "description": "Open-source harness readiness scanner",
+  "type": "module",
+  "bin": {
+    "harnix": "bin/harnix.js"
+  },
+  "scripts": {
+    "scan": "node bin/harnix.js scan ."
+  },
+  "license": "Apache-2.0"
+}
