@@ -10,10 +10,16 @@ export const SCORE_BANDS = {
  */
 
 /**
+ * @typedef {"critical" | "important" | "nice-to-have"} CheckTier
+ */
+
+/**
  * @typedef {object} CheckResult
  * @property {string} id
  * @property {string} name
+ * @property {CheckTier} tier
  * @property {number} score
  * @property {CheckStatus} status
  * @property {string} summary
+ * @property {string[]} recommendations
  */

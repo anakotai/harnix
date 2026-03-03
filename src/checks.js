@@ -41,9 +41,13 @@ async function checkAgentGuidance(rootPath, files) {
     return {
       id: "agents-md",
       name: "Agent guidance",
+      tier: "critical",
       score: 0,
       status: "fail",
-      summary: "No AGENTS.md or CLAUDE.md found"
+      summary: "No AGENTS.md or CLAUDE.md found",
+      recommendations: [
+        "Create AGENTS.md with focused guidance for build, test, and repo conventions."
+      ]
     };
   }
 
@@ -57,30 +61,45 @@ async function checkAgentGuidance(rootPath, files) {
     return {
       id: "agents-md",
       name: "Agent guidance",
+      tier: "critical",
       score: 0.1,
       status: "fail",
-      summary: `Could not read ${sourceFile}: ${message}`
+      summary: `Could not read ${sourceFile}: ${message}`,
+      recommendations: [
+        `Fix permissions or encoding issues so ${sourceFile} can be read during scans.`
+      ]
     };
   }
   const trimmed = content.trim();
 
   let score = 1;
   let summary = `${sourceFile} present`;
+  let recommendations = [
+    "Keep AGENTS.md current as workflows, commands, and repository conventions change."
+  ];
 
   if (trimmed.length === 0) {
     score = 0.6;
     summary = `${sourceFile} is empty but intentionally present`;
+    recommendations = [
+      "Add concise, high-value agent guidance (common commands, traps, and repo-specific rules)."
+    ];
   } else if (trimmed.length < 120) {
     score = 0.8;
     summary = `${sourceFile} has brief guidance`;
+    recommendations = [
+      "Expand AGENTS.md with concrete build, test, and module-specific workflow instructions."
+    ];
   }
 
   return {
     id: "agents-md",
     name: "Agent guidance",
+    tier: "critical",
     score,
     status: statusFromScore(score),
-    summary
+    summary,
+    recommendations
   };
 }
 
@@ -100,9 +119,13 @@ async function checkDocumentation(rootPath, files) {
     return {
       id: "documentation",
       name: "Documentation",
+      tier: "critical",
       score: 0.2,
       status: "fail",
-      summary: "No README.md found"
+      summary: "No README.md found",
+      recommendations: [
+        "Add a substantive README.md with project purpose, setup steps, and usage examples."
+      ]
     };
   }
 
@@ -115,27 +138,42 @@ async function checkDocumentation(rootPath, files) {
     return {
       id: "documentation",
       name: "Documentation",
+      tier: "critical",
       score: 0.2,
       status: "fail",
-      summary: `Unable to read README.md: ${message}`
+      summary: `Unable to read README.md: ${message}`,
+      recommendations: [
+        "Repair README.md readability issues so onboarding and tooling checks can parse it."
+      ]
     };
   }
   const substantiveReadme = readme.trim().length > 120;
   const score = (substantiveReadme ? 0.6 : 0.3) + (hasDocs ? 0.4 : 0);
 
   let summary = "README.md and docs structure present";
+  let recommendations = [
+    "Maintain README.md and docs/prds as the single source of truth for onboarding and operations."
+  ];
   if (!substantiveReadme) {
     summary = "README.md exists but is brief";
+    recommendations = [
+      "Expand README.md with setup, run, test, and contribution guidance to reduce onboarding friction."
+    ];
   } else if (!hasDocs) {
     summary = "README.md exists but no docs/ or prds/ directory";
+    recommendations = [
+      "Add docs/ or prds/ for durable product, architecture, and process documentation."
+    ];
   }
 
   return {
     id: "documentation",
     name: "Documentation",
+    tier: "critical",
     score: Math.min(1, score),
     status: statusFromScore(score),
-    summary
+    summary,
+    recommendations
   };
 }
 
@@ -149,17 +187,25 @@ async function checkCiPipeline(files) {
     return {
       id: "ci-pipeline",
       name: "CI pipeline",
+      tier: "important",
       score: 0,
       status: "fail",
-      summary: "No CI/CD configuration detected"
+      summary: "No CI/CD configuration detected",
+      recommendations: [
+        "Add a CI pipeline (for example GitHub Actions) to automate lint, test, and build checks."
+      ]
     };
   }
 
   return {
     id: "ci-pipeline",
     name: "CI pipeline",
+    tier: "important",
     score: 1,
     status: "pass",
-    summary: `Detected ${ciSystem}`
+    summary: `Detected ${ciSystem}`,
+    recommendations: [
+      "Keep CI checks reliable and enforce required status checks before merging."
+    ]
   };
 }

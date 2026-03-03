@@ -37,8 +37,50 @@ function formatPercent(score) {
 }
 
 /**
+ * @param {"critical" | "important" | "nice-to-have"} tier
+ */
+function tierPriority(tier) {
+  if (tier === "critical") {
+    return 0;
+  }
+  if (tier === "important") {
+    return 1;
+  }
+  return 2;
+}
+
+/**
+ * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, recommendations: string[]}>} checks
+ */
+function topRecommendations(checks) {
+  const ranked = checks
+    .filter((check) => Array.isArray(check.recommendations) && check.recommendations.length > 0)
+    .map((check) => ({
+      recommendation: check.recommendations[0],
+      tier: check.tier,
+      score: check.score,
+      name: check.name
+    }))
+    .sort((a, b) => {
+      const tierDelta = tierPriority(a.tier) - tierPriority(b.tier);
+      if (tierDelta !== 0) {
+        return tierDelta;
+      }
+
+      const scoreDelta = a.score - b.score;
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+
+  return ranked.slice(0, 3);
+}
+
+/**
  * @param {string} targetPath
- * @param {Array<{name: string, score: number, status: "pass" | "partial" | "fail", summary: string}>} checks
+ * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
  * @param {number} overallScore
  */
 export function printConsoleReport(targetPath, checks, overallScore) {
@@ -55,5 +97,14 @@ export function printConsoleReport(targetPath, checks, overallScore) {
     const name = check.name.padEnd(18, " ");
     const percent = formatPercent(check.score).padStart(4, " ");
     console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
+  }
+
+  const recommendations = topRecommendations(checks);
+  if (recommendations.length > 0) {
+    console.log("");
+    console.log("Top recommendations:");
+    recommendations.forEach((item, index) => {
+      console.log(`${index + 1}. ${item.recommendation}`);
+    });
   }
 }
