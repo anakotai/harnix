@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { scanRepository } from "./engine.js";
-import { printConsoleReport } from "./report.js";
+import { printConsoleReport, writeReportFiles } from "./report.js";
 
 function printHelp() {
   console.log("Usage: harnix scan [path]");
@@ -49,4 +49,9 @@ export async function runCli(args) {
 
   const result = await scanRepository(resolvedPath);
   printConsoleReport(targetPath, result.checks, result.overallScore);
+
+  const reports = await writeReportFiles(result.absolutePath, result.checks, result.overallScore);
+  console.log("");
+  console.log(`Reports written: ${reports.markdownPath}`);
+  console.log(`                 ${reports.htmlPath}`);
 }
