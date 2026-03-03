@@ -248,14 +248,17 @@ ${recommendationItems}
  * @param {string} scannedPath
  * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
  * @param {number} overallScore
+ * @param {string} [outputDirectory]
  */
-export async function writeReportFiles(scannedPath, checks, overallScore) {
+export async function writeReportFiles(scannedPath, checks, overallScore, outputDirectory) {
   const timestamp = reportTimestamp();
-  const outputDirectory = path.join(scannedPath, "harnix");
-  const markdownPath = path.join(outputDirectory, `report-${timestamp}.md`);
-  const htmlPath = path.join(outputDirectory, `report-${timestamp}.html`);
+  const resolvedOutputDirectory = outputDirectory
+    ? path.resolve(outputDirectory)
+    : path.join(scannedPath, "harnix");
+  const markdownPath = path.join(resolvedOutputDirectory, `report-${timestamp}.md`);
+  const htmlPath = path.join(resolvedOutputDirectory, `report-${timestamp}.html`);
 
-  await fs.mkdir(outputDirectory, { recursive: true });
+  await fs.mkdir(resolvedOutputDirectory, { recursive: true });
 
   const markdownContent = buildMarkdownReport(scannedPath, checks, overallScore, timestamp);
   const htmlContent = buildHtmlReport(scannedPath, checks, overallScore, timestamp);
