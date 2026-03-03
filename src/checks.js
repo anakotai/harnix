@@ -1,12 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { findCiSystem } from "./scanner.js";
+import { explanationForCheck } from "./knowledge-base.js";
 
-const WHY_AGENT_GUIDANCE =
+const WHY_AGENT_GUIDANCE_FALLBACK =
   "Clear agent instructions reduce workflow mistakes and make automated contributions predictable.";
-const WHY_DOCUMENTATION =
+const WHY_DOCUMENTATION_FALLBACK =
   "Durable documentation lowers onboarding time and keeps delivery and compliance evidence repeatable.";
-const WHY_CI_PIPELINE =
+const WHY_CI_PIPELINE_FALLBACK =
   "Automated CI catches regressions early and enforces quality gates before changes are merged.";
 
 /**
@@ -41,6 +42,7 @@ export async function runChecks(rootPath, files) {
  * @param {string[]} files
  */
 async function checkAgentGuidance(rootPath, files) {
+  const whyThisMatters = await explanationForCheck("agents-md", WHY_AGENT_GUIDANCE_FALLBACK);
   const hasAgents = files.includes("AGENTS.md");
   const hasClaude = files.includes("CLAUDE.md");
 
@@ -59,7 +61,7 @@ async function checkAgentGuidance(rootPath, files) {
         "Create AGENTS.md with focused guidance for build, test, and repo conventions."
       ],
       references: [],
-      whyThisMatters: WHY_AGENT_GUIDANCE
+      whyThisMatters
     };
   }
 
@@ -83,7 +85,7 @@ async function checkAgentGuidance(rootPath, files) {
         `Fix permissions or encoding issues so ${sourceFile} can be read during scans.`
       ],
       references: [sourceFile],
-      whyThisMatters: WHY_AGENT_GUIDANCE
+      whyThisMatters
     };
   }
   const trimmed = content.trim();
@@ -123,7 +125,7 @@ async function checkAgentGuidance(rootPath, files) {
     details,
     recommendations,
     references: [sourceFile],
-    whyThisMatters: WHY_AGENT_GUIDANCE
+    whyThisMatters
   };
 }
 
@@ -132,6 +134,7 @@ async function checkAgentGuidance(rootPath, files) {
  * @param {string[]} files
  */
 async function checkDocumentation(rootPath, files) {
+  const whyThisMatters = await explanationForCheck("documentation", WHY_DOCUMENTATION_FALLBACK);
   const hasReadme = files.includes("README.md");
   const hasDocsDir = files.some((filePath) => filePath.startsWith("docs/"));
   const hasPrdsDir = files.some((filePath) => filePath.startsWith("prds/"));
@@ -152,7 +155,7 @@ async function checkDocumentation(rootPath, files) {
         "Add a substantive README.md with project purpose, setup steps, and usage examples."
       ],
       references: [],
-      whyThisMatters: WHY_DOCUMENTATION
+      whyThisMatters
     };
   }
 
@@ -175,7 +178,7 @@ async function checkDocumentation(rootPath, files) {
         "Repair README.md readability issues so onboarding and tooling checks can parse it."
       ],
       references: ["README.md"],
-      whyThisMatters: WHY_DOCUMENTATION
+      whyThisMatters
     };
   }
   const readmeLength = readme.trim().length;
@@ -220,7 +223,7 @@ async function checkDocumentation(rootPath, files) {
     details,
     recommendations,
     references,
-    whyThisMatters: WHY_DOCUMENTATION
+    whyThisMatters
   };
 }
 
@@ -228,6 +231,7 @@ async function checkDocumentation(rootPath, files) {
  * @param {string[]} files
  */
 async function checkCiPipeline(files) {
+  const whyThisMatters = await explanationForCheck("ci-pipeline", WHY_CI_PIPELINE_FALLBACK);
   const ciSystem = findCiSystem(files);
 
   if (!ciSystem) {
@@ -245,7 +249,7 @@ async function checkCiPipeline(files) {
         "Add a CI pipeline (for example GitHub Actions) to automate lint, test, and build checks."
       ],
       references: [],
-      whyThisMatters: WHY_CI_PIPELINE
+      whyThisMatters
     };
   }
 
@@ -262,6 +266,6 @@ async function checkCiPipeline(files) {
       "Keep CI checks reliable and enforce required status checks before merging."
     ],
     references: [ciSystem],
-    whyThisMatters: WHY_CI_PIPELINE
+    whyThisMatters
   };
 }

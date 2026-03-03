@@ -1,0 +1,7 @@
+{
+  "checkExplanations": {
+    "agents-md": "Clear agent instructions prevent workflow errors and keep autonomous edits aligned with repository-specific expectations.",
+    "documentation": "Shared documentation keeps onboarding predictable and reduces repeated clarification work across humans and agents.",
+    "ci-pipeline": "Continuous integration catches regressions early and enforces minimum quality before changes reach shared branches."
+  }
+}
