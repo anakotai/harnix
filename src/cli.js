@@ -13,6 +13,7 @@ function printHelp() {
   console.log("  --verbose        Show per-check rationale in console output");
   console.log("  --output <path>  Write reports to a custom output directory");
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
+  console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
 }
 
 /**
@@ -71,6 +72,8 @@ function parseScanArgs(args) {
   let verbose = false;
   /** @type {string[]} */
   const skipIds = [];
+  /** @type {string[]} */
+  const onlyIds = [];
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -114,6 +117,22 @@ function parseScanArgs(args) {
       continue;
     }
 
+    if (argument === "--only") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --only");
+      }
+      onlyIds.push(...parseIdList("--only", value));
+      index += 1;
+      continue;
+    }
+
+    if (argument.startsWith("--only=")) {
+      const value = argument.slice("--only=".length);
+      onlyIds.push(...parseIdList("--only", value));
+      continue;
+    }
+
     if (argument.startsWith("-")) {
       throw new Error(`Unknown option: ${argument}`);
     }
@@ -126,7 +145,13 @@ function parseScanArgs(args) {
     hasTargetPath = true;
   }
 
-  return { targetPath, outputPath, verbose, skipIds: dedupeIds(skipIds) };
+  return {
+    targetPath,
+    outputPath,
+    verbose,
+    skipIds: dedupeIds(skipIds),
+    onlyIds: dedupeIds(onlyIds)
+  };
 }
 
 /**
@@ -144,12 +169,12 @@ export async function runCli(args) {
     throw new Error(`Unknown command: ${command}`);
   }
 
-  const { targetPath, outputPath, verbose, skipIds } = parseScanArgs(commandArgs);
+  const { targetPath, outputPath, verbose, skipIds, onlyIds } = parseScanArgs(commandArgs);
   const resolvedPath = path.resolve(targetPath);
   const resolvedOutputPath = outputPath ? path.resolve(outputPath) : undefined;
   await ensureDirectory(resolvedPath);
 
-  const result = await scanRepository(resolvedPath, { skipIds });
+  const result = await scanRepository(resolvedPath, { skipIds, onlyIds });
   printConsoleReport(targetPath, result.checks, result.overallScore, { verbose });
 
   const reports = await writeReportFiles(

@@ -4,13 +4,14 @@ import { runChecks } from "./checks.js";
 
 /**
  * @param {string} targetPath
- * @param {{skipIds?: string[]}} [options]
+ * @param {{skipIds?: string[], onlyIds?: string[]}} [options]
  */
 export async function scanRepository(targetPath, options = {}) {
   const absolutePath = path.resolve(targetPath);
   const files = await listFiles(absolutePath);
   const checks = await runChecks(absolutePath, files, {
-    skipIds: options.skipIds
+    skipIds: options.skipIds,
+    onlyIds: options.onlyIds
   });
 
   const total = checks.reduce((sum, check) => sum + check.score, 0);

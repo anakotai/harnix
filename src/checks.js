@@ -28,20 +28,25 @@ function statusFromScore(score) {
 /**
  * @param {string} rootPath
  * @param {string[]} files
- * @param {{skipIds?: string[]}} [options]
+ * @param {{skipIds?: string[], onlyIds?: string[]}} [options]
  */
 export async function runChecks(rootPath, files, options = {}) {
   const skipIds = new Set(options.skipIds ?? []);
+  const onlyIds = new Set(options.onlyIds ?? []);
+  const hasOnlyFilter = onlyIds.size > 0;
   /** @type {Array<Promise<object>>} */
   const pendingChecks = [];
 
-  if (!skipIds.has("agents-md")) {
+  const shouldRunCheck = (checkId) =>
+    (!hasOnlyFilter || onlyIds.has(checkId)) && !skipIds.has(checkId);
+
+  if (shouldRunCheck("agents-md")) {
     pendingChecks.push(checkAgentGuidance(rootPath, files));
   }
-  if (!skipIds.has("documentation")) {
+  if (shouldRunCheck("documentation")) {
     pendingChecks.push(checkDocumentation(rootPath, files));
   }
-  if (!skipIds.has("ci-pipeline")) {
+  if (shouldRunCheck("ci-pipeline")) {
     pendingChecks.push(checkCiPipeline(files));
   }
 
