@@ -145,12 +145,19 @@ function parseScanArgs(args) {
     hasTargetPath = true;
   }
 
+  const uniqueSkipIds = dedupeIds(skipIds);
+  const uniqueOnlyIds = dedupeIds(onlyIds);
+
+  if (uniqueSkipIds.length > 0 && uniqueOnlyIds.length > 0) {
+    throw new Error("--skip and --only cannot be used together");
+  }
+
   return {
     targetPath,
     outputPath,
     verbose,
-    skipIds: dedupeIds(skipIds),
-    onlyIds: dedupeIds(onlyIds)
+    skipIds: uniqueSkipIds,
+    onlyIds: uniqueOnlyIds
   };
 }
 
