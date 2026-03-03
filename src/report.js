@@ -274,16 +274,23 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
   const counts = statusCounts(checks);
 
   const categoryRows = categoryScores
-    .map(
-      (category) => `<tr>
+    .map((category) => {
+      const categoryPercent = Math.round(category.averageScore * 100);
+      return `<tr>
   <td>${escapeHtml(formatCategoryLabel(category.category))}</td>
   <td>${category.count}</td>
   <td>${escapeHtml(formatPercent(category.averageScore))}</td>
+  <td>
+    <div class="score-track" aria-hidden="true">
+      <div class="score-fill" style="width: ${categoryPercent}%"></div>
+    </div>
+    <span class="metric-label">${categoryPercent}%</span>
+  </td>
   <td>${category.pass}</td>
   <td>${category.partial}</td>
   <td>${category.fail}</td>
 </tr>`
-    )
+    })
     .join("\n");
 
   const resultRows = checks
@@ -301,38 +308,51 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
     .join("\n");
 
   const detailsSections = checks
-    .map((check) => {
+    .map((check, index) => {
       const recommendationItems = check.recommendations
         .map((item) => `<li>${escapeHtml(item)}</li>`)
         .join("\n");
       const referenceItems = check.references
         .map((item) => `<li><code>${escapeHtml(item)}</code></li>`)
         .join("\n");
+      const openByDefault = check.status !== "pass" && index === 0;
+      const checkPercent = Math.round(check.score * 100);
 
-      return `<section class="check-detail">
-  <h3>${escapeHtml(check.name)} <code>${escapeHtml(check.id)}</code></h3>
-  <p><strong>Category:</strong> ${escapeHtml(formatCategoryLabel(check.category))}</p>
-  <p><strong>Tier:</strong> ${escapeHtml(check.tier)}</p>
-  <p><strong>Score:</strong> ${escapeHtml(formatPercent(check.score))} (${escapeHtml(check.status)})</p>
-  <p><strong>Summary:</strong> ${escapeHtml(check.summary)}</p>
-  <p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
+      return `<details class="check-detail" data-status="${escapeHtml(check.status)}"${openByDefault ? " open" : ""}>
+  <summary>
+    <span class="check-status">${escapeHtml(symbolForStatus(check.status))}</span>
+    <span class="check-name">${escapeHtml(check.name)}</span>
+    <span class="check-summary">${escapeHtml(formatPercent(check.score))} • ${escapeHtml(check.status)}</span>
+  </summary>
+  <div class="check-body">
+    <p><strong>ID:</strong> <code>${escapeHtml(check.id)}</code></p>
+    <p><strong>Category:</strong> ${escapeHtml(formatCategoryLabel(check.category))}</p>
+    <p><strong>Tier:</strong> ${escapeHtml(check.tier)}</p>
+    <p><strong>Score:</strong> ${escapeHtml(formatPercent(check.score))} (${escapeHtml(check.status)})</p>
+    <div class="score-track" aria-hidden="true">
+      <div class="score-fill" style="width: ${checkPercent}%"></div>
+    </div>
+    <span class="metric-label">${checkPercent}%</span>
+    <p><strong>Summary:</strong> ${escapeHtml(check.summary)}</p>
+    <p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
   ${
     check.references.length > 0
       ? `<p><strong>References</strong></p>
-  <ul>
+    <ul>
 ${referenceItems}
-  </ul>`
+    </ul>`
       : ""
   }
   ${
     check.recommendations.length > 0
       ? `<p><strong>Recommendations</strong></p>
-  <ol>
+    <ol>
 ${recommendationItems}
-  </ol>`
+    </ol>`
       : ""
   }
-</section>`;
+  </div>
+</details>`;
     })
     .join("\n");
 
@@ -352,92 +372,327 @@ ${recommendationItems}
   <title>Harnix Harness Readiness Report</title>
   <style>
     :root {
-      color-scheme: light dark;
       font-family: Roboto, Arial, sans-serif;
+      --bg: #f8faf0;
+      --surface: #ffffff;
+      --text: #1a1c18;
+      --muted: #43483e;
+      --border: #c3c8bb;
+      --header-bg: #d9e7cb;
+      --summary-bg: #eff5e7;
+      --track: #d9dbd1;
+      --fill: #386a1f;
+      --accent: #1556ac;
+      --status-pass: #386a1f;
+      --status-partial: #e38a20;
+      --status-fail: #ba1a1a;
+      color-scheme: light;
+    }
+    :root[data-theme="dark"] {
+      --bg: #11140e;
+      --surface: #1b1f18;
+      --text: #e3e3dc;
+      --muted: #c3c8bb;
+      --border: #4a5144;
+      --header-bg: #283420;
+      --summary-bg: #253121;
+      --track: #373a33;
+      --fill: #9dd67d;
+      --accent: #8ab4ff;
+      --status-pass: #9dd67d;
+      --status-partial: #ffc166;
+      --status-fail: #ffb4ab;
+      color-scheme: dark;
     }
     body {
-      margin: 2rem;
+      margin: 0;
       line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
     }
-    h1, h2 {
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    h1, h2, h3 {
       font-family: "Roboto Serif", Georgia, serif;
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 0.5rem;
+      padding: 0.45rem 0.7rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: var(--accent);
+    }
+    .summary-card {
+      border: 1px solid var(--border);
+      background: var(--summary-bg);
+      border-radius: 0.75rem;
+      padding: 1rem 1rem 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .score-track {
+      width: 100%;
+      max-width: 320px;
+      height: 0.65rem;
+      background: var(--track);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 0.35rem 0 0.2rem;
+    }
+    .score-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--fill), var(--accent));
+    }
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      white-space: nowrap;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       margin: 1rem 0;
+      background: var(--surface);
     }
     th, td {
-      border: 1px solid #74796d;
+      border: 1px solid var(--border);
       text-align: left;
       padding: 0.5rem;
       vertical-align: top;
     }
     thead th {
-      background: #d9e7cb;
+      background: var(--header-bg);
     }
-    section.check-detail {
-      border: 1px solid #74796d;
-      padding: 1rem;
-      margin: 1rem 0;
+    details.check-detail {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      margin: 0.75rem 0;
       border-radius: 0.5rem;
     }
+    details.check-detail summary {
+      list-style: none;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.65rem;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+    }
+    details.check-detail summary::-webkit-details-marker {
+      display: none;
+    }
+    details.check-detail summary::after {
+      content: "Show";
+      font-size: 0.8rem;
+      color: var(--muted);
+      justify-self: end;
+    }
+    details.check-detail[open] summary::after {
+      content: "Hide";
+    }
+    .check-status {
+      font-size: 1rem;
+      width: 1.25rem;
+      text-align: center;
+      color: var(--status-partial);
+    }
+    details.check-detail[data-status="pass"] .check-status {
+      color: var(--status-pass);
+    }
+    details.check-detail[data-status="fail"] .check-status {
+      color: var(--status-fail);
+    }
+    .check-summary {
+      color: var(--muted);
+      font-size: 0.85rem;
+      justify-self: end;
+      text-transform: capitalize;
+    }
+    .check-body {
+      padding: 0 1rem 1rem;
+      border-top: 1px solid var(--border);
+    }
     .meta {
-      color: #43483e;
+      color: var(--muted);
       font-size: 0.9rem;
+    }
+    @media (max-width: 720px) {
+      .container {
+        padding: 1rem;
+      }
+      details.check-detail summary {
+        grid-template-columns: auto 1fr;
+      }
+      .check-summary {
+        grid-column: 1 / -1;
+        justify-self: start;
+      }
+    }
+    @media print {
+      button {
+        display: none;
+      }
+      details.check-detail {
+        break-inside: avoid;
+      }
+      details.check-detail summary::after {
+        content: "";
+      }
+      .container {
+        max-width: none;
+        padding: 0;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Harnix Harness Readiness Report</h1>
-  <h2>Executive Summary</h2>
-  <p><strong>Overall score:</strong> ${escapeHtml(String(overallPercent))}%</p>
-  <p><strong>Qualitative band:</strong> ${escapeHtml(band)}</p>
-  <p><strong>Generated:</strong> ${escapeHtml(timestamp)}</p>
-  <p><strong>Scanned path:</strong> <code>${escapeHtml(scannedPath)}</code></p>
-  <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+  <div class="container">
+    <header class="page-header">
+      <div>
+        <h1>Harnix Harness Readiness Report</h1>
+        <p class="meta">Generated ${escapeHtml(timestamp)} • Scanned <code>${escapeHtml(scannedPath)}</code></p>
+      </div>
+      <div class="controls" role="group" aria-label="Report controls">
+        <button id="theme-toggle" type="button">Toggle theme</button>
+        <button id="expand-all" type="button">Expand all</button>
+        <button id="collapse-all" type="button">Collapse all</button>
+      </div>
+    </header>
 
-  <h2>Category Breakdown</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Checks</th>
-        <th>Average score</th>
-        <th>Pass</th>
-        <th>Partial</th>
-        <th>Fail</th>
-      </tr>
-    </thead>
-    <tbody>
+    <h2>Executive Summary</h2>
+    <div class="summary-card">
+      <p><strong>Overall score:</strong> ${escapeHtml(String(overallPercent))}%</p>
+      <div class="score-track" aria-hidden="true">
+        <div class="score-fill" style="width: ${overallPercent}%"></div>
+      </div>
+      <span class="metric-label">${overallPercent}% readiness</span>
+      <p><strong>Qualitative band:</strong> ${escapeHtml(band)}</p>
+      <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+    </div>
+
+    <h2>Category Breakdown</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Checks</th>
+          <th>Average score</th>
+          <th>Visualization</th>
+          <th>Pass</th>
+          <th>Partial</th>
+          <th>Fail</th>
+        </tr>
+      </thead>
+      <tbody>
 ${categoryRows}
-    </tbody>
-  </table>
+      </tbody>
+    </table>
 
-  <h2>Check Results</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Status</th>
-        <th>Check</th>
-        <th>Category</th>
-        <th>Tier</th>
-        <th>Score</th>
-        <th>Summary</th>
-      </tr>
-    </thead>
-    <tbody>
+    <h2>Check Results</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Check</th>
+          <th>Category</th>
+          <th>Tier</th>
+          <th>Score</th>
+          <th>Summary</th>
+        </tr>
+      </thead>
+      <tbody>
 ${resultRows}
-    </tbody>
-  </table>
+      </tbody>
+    </table>
 
-  <h2>Detailed Findings</h2>
+    <h2>Detailed Findings</h2>
 ${detailsSections}
 
-  <h2>Prioritized Recommendations</h2>
-  <ol>
+    <h2>Prioritized Recommendations</h2>
+    <ol>
 ${recommendationsList}
-  </ol>
+    </ol>
+  </div>
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const themeToggle = document.getElementById("theme-toggle");
+      const expandAll = document.getElementById("expand-all");
+      const collapseAll = document.getElementById("collapse-all");
+      const details = Array.from(document.querySelectorAll("details.check-detail"));
+      const storageKey = "harnix-report-theme";
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+      const getSystemTheme = () => (media.matches ? "dark" : "light");
+      const getStoredTheme = () => {
+        try {
+          const value = window.localStorage.getItem(storageKey);
+          return value === "dark" || value === "light" ? value : null;
+        } catch {
+          return null;
+        }
+      };
+      const setStoredTheme = (value) => {
+        try {
+          window.localStorage.setItem(storageKey, value);
+        } catch {
+          // Ignore environments without localStorage.
+        }
+      };
+      const applyTheme = (theme) => {
+        root.dataset.theme = theme;
+        themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+      };
+
+      applyTheme(getStoredTheme() || getSystemTheme());
+
+      themeToggle.addEventListener("click", () => {
+        const nextTheme = root.dataset.theme === "dark" ? "light" : "dark";
+        setStoredTheme(nextTheme);
+        applyTheme(nextTheme);
+      });
+
+      if (typeof media.addEventListener === "function") {
+        media.addEventListener("change", () => {
+          if (!getStoredTheme()) {
+            applyTheme(getSystemTheme());
+          }
+        });
+      }
+
+      expandAll.addEventListener("click", () => {
+        details.forEach((element) => {
+          element.open = true;
+        });
+      });
+      collapseAll.addEventListener("click", () => {
+        details.forEach((element) => {
+          element.open = false;
+        });
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
