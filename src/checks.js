@@ -28,13 +28,24 @@ function statusFromScore(score) {
 /**
  * @param {string} rootPath
  * @param {string[]} files
+ * @param {{skipIds?: string[]}} [options]
  */
-export async function runChecks(rootPath, files) {
-  return [
-    await checkAgentGuidance(rootPath, files),
-    await checkDocumentation(rootPath, files),
-    await checkCiPipeline(files)
-  ];
+export async function runChecks(rootPath, files, options = {}) {
+  const skipIds = new Set(options.skipIds ?? []);
+  /** @type {Array<Promise<object>>} */
+  const pendingChecks = [];
+
+  if (!skipIds.has("agents-md")) {
+    pendingChecks.push(checkAgentGuidance(rootPath, files));
+  }
+  if (!skipIds.has("documentation")) {
+    pendingChecks.push(checkDocumentation(rootPath, files));
+  }
+  if (!skipIds.has("ci-pipeline")) {
+    pendingChecks.push(checkCiPipeline(files));
+  }
+
+  return Promise.all(pendingChecks);
 }
 
 /**
