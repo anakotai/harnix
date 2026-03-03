@@ -726,10 +726,12 @@ export async function writeReportFiles(scannedPath, checks, overallScore, output
 
 /**
  * @param {string} targetPath
- * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
+ * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[], whyThisMatters?: string}>} checks
  * @param {number} overallScore
+ * @param {{verbose?: boolean}} [options]
  */
-export function printConsoleReport(targetPath, checks, overallScore) {
+export function printConsoleReport(targetPath, checks, overallScore, options = {}) {
+  const verbose = options.verbose === true;
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
 
@@ -743,6 +745,14 @@ export function printConsoleReport(targetPath, checks, overallScore) {
     const name = check.name.padEnd(18, " ");
     const percent = formatPercent(check.score).padStart(4, " ");
     console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
+
+    if (verbose) {
+      const why =
+        typeof check.whyThisMatters === "string" && check.whyThisMatters.trim().length > 0
+          ? check.whyThisMatters.trim()
+          : "This check affects how reliably humans and agents can operate in the repository.";
+      console.log(`    Why this matters: ${why}`);
+    }
   }
 
   const recommendations = topRecommendations(checks);

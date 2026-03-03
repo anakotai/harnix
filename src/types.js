@@ -23,6 +23,7 @@ export const SCORE_BANDS = {
  * @property {CheckStatus} status
  * @property {string} summary
  * @property {string} details
+ * @property {string} whyThisMatters
  * @property {string[]} recommendations
  * @property {string[]} references
  */

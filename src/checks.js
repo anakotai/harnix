@@ -2,6 +2,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { findCiSystem } from "./scanner.js";
 
+const WHY_AGENT_GUIDANCE =
+  "Clear agent instructions reduce workflow mistakes and make automated contributions predictable.";
+const WHY_DOCUMENTATION =
+  "Durable documentation lowers onboarding time and keeps delivery and compliance evidence repeatable.";
+const WHY_CI_PIPELINE =
+  "Automated CI catches regressions early and enforces quality gates before changes are merged.";
+
 /**
  * @param {number} score
  * @returns {"pass" | "partial" | "fail"}
@@ -51,7 +58,8 @@ async function checkAgentGuidance(rootPath, files) {
       recommendations: [
         "Create AGENTS.md with focused guidance for build, test, and repo conventions."
       ],
-      references: []
+      references: [],
+      whyThisMatters: WHY_AGENT_GUIDANCE
     };
   }
 
@@ -74,7 +82,8 @@ async function checkAgentGuidance(rootPath, files) {
       recommendations: [
         `Fix permissions or encoding issues so ${sourceFile} can be read during scans.`
       ],
-      references: [sourceFile]
+      references: [sourceFile],
+      whyThisMatters: WHY_AGENT_GUIDANCE
     };
   }
   const trimmed = content.trim();
@@ -113,7 +122,8 @@ async function checkAgentGuidance(rootPath, files) {
     summary,
     details,
     recommendations,
-    references: [sourceFile]
+    references: [sourceFile],
+    whyThisMatters: WHY_AGENT_GUIDANCE
   };
 }
 
@@ -141,7 +151,8 @@ async function checkDocumentation(rootPath, files) {
       recommendations: [
         "Add a substantive README.md with project purpose, setup steps, and usage examples."
       ],
-      references: []
+      references: [],
+      whyThisMatters: WHY_DOCUMENTATION
     };
   }
 
@@ -163,7 +174,8 @@ async function checkDocumentation(rootPath, files) {
       recommendations: [
         "Repair README.md readability issues so onboarding and tooling checks can parse it."
       ],
-      references: ["README.md"]
+      references: ["README.md"],
+      whyThisMatters: WHY_DOCUMENTATION
     };
   }
   const readmeLength = readme.trim().length;
@@ -207,7 +219,8 @@ async function checkDocumentation(rootPath, files) {
     summary,
     details,
     recommendations,
-    references
+    references,
+    whyThisMatters: WHY_DOCUMENTATION
   };
 }
 
@@ -231,7 +244,8 @@ async function checkCiPipeline(files) {
       recommendations: [
         "Add a CI pipeline (for example GitHub Actions) to automate lint, test, and build checks."
       ],
-      references: []
+      references: [],
+      whyThisMatters: WHY_CI_PIPELINE
     };
   }
 
@@ -247,6 +261,7 @@ async function checkCiPipeline(files) {
     recommendations: [
       "Keep CI checks reliable and enforce required status checks before merging."
     ],
-    references: [ciSystem]
+    references: [ciSystem],
+    whyThisMatters: WHY_CI_PIPELINE
   };
 }

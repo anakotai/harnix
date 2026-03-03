@@ -10,6 +10,7 @@ function printHelp() {
   console.log("  scan [path]   Scan a repository for harness readiness");
   console.log("");
   console.log("Options:");
+  console.log("  --verbose        Show per-check rationale in console output");
   console.log("  --output <path>  Write reports to a custom output directory");
 }
 
@@ -38,9 +39,15 @@ function parseScanArgs(args) {
   let targetPath = ".";
   let hasTargetPath = false;
   let outputPath;
+  let verbose = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+
+    if (argument === "--verbose") {
+      verbose = true;
+      continue;
+    }
 
     if (argument === "--output") {
       const value = args[index + 1];
@@ -72,7 +79,7 @@ function parseScanArgs(args) {
     hasTargetPath = true;
   }
 
-  return { targetPath, outputPath };
+  return { targetPath, outputPath, verbose };
 }
 
 /**
@@ -90,13 +97,13 @@ export async function runCli(args) {
     throw new Error(`Unknown command: ${command}`);
   }
 
-  const { targetPath, outputPath } = parseScanArgs(commandArgs);
+  const { targetPath, outputPath, verbose } = parseScanArgs(commandArgs);
   const resolvedPath = path.resolve(targetPath);
   const resolvedOutputPath = outputPath ? path.resolve(outputPath) : undefined;
   await ensureDirectory(resolvedPath);
 
   const result = await scanRepository(resolvedPath);
-  printConsoleReport(targetPath, result.checks, result.overallScore);
+  printConsoleReport(targetPath, result.checks, result.overallScore, { verbose });
 
   const reports = await writeReportFiles(
     result.absolutePath,
