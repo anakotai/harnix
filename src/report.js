@@ -41,6 +41,23 @@ function formatPercent(score) {
 /**
  * @param {string} value
  */
+function escapeMarkdownCell(value) {
+  return value.replaceAll("|", "\\|");
+}
+
+/**
+ * @param {string} category
+ */
+function formatCategoryLabel(category) {
+  return category
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/**
+ * @param {string} value
+ */
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
@@ -71,6 +88,60 @@ export function reportTimestamp(now = new Date()) {
 }
 
 /**
+ * @param {Array<{category: string, score: number, status: "pass" | "partial" | "fail"}>} checks
+ */
+function categoryBreakdown(checks) {
+  /** @type {Map<string, {category: string, totalScore: number, count: number, pass: number, partial: number, fail: number}>} */
+  const categories = new Map();
+
+  for (const check of checks) {
+    const existing = categories.get(check.category) ?? {
+      category: check.category,
+      totalScore: 0,
+      count: 0,
+      pass: 0,
+      partial: 0,
+      fail: 0
+    };
+
+    existing.totalScore += check.score;
+    existing.count += 1;
+    existing[check.status] += 1;
+    categories.set(check.category, existing);
+  }
+
+  return Array.from(categories.values())
+    .map((entry) => ({
+      category: entry.category,
+      count: entry.count,
+      averageScore: entry.count > 0 ? entry.totalScore / entry.count : 0,
+      pass: entry.pass,
+      partial: entry.partial,
+      fail: entry.fail
+    }))
+    .sort((a, b) => {
+      const scoreDelta = a.averageScore - b.averageScore;
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+      return a.category.localeCompare(b.category);
+    });
+}
+
+/**
+ * @param {Array<{status: "pass" | "partial" | "fail"}>} checks
+ */
+function statusCounts(checks) {
+  return checks.reduce(
+    (accumulator, check) => {
+      accumulator[check.status] += 1;
+      return accumulator;
+    },
+    { pass: 0, partial: 0, fail: 0 }
+  );
+}
+
+/**
  * @param {"critical" | "important" | "nice-to-have"} tier
  */
 function tierPriority(tier) {
@@ -84,12 +155,13 @@ function tierPriority(tier) {
 }
 
 /**
- * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, recommendations: string[]}>} checks
+ * @param {Array<{id: string, name: string, tier: "critical" | "important" | "nice-to-have", score: number, recommendations: string[]}>} checks
  */
 function topRecommendations(checks) {
   const ranked = checks
     .filter((check) => Array.isArray(check.recommendations) && check.recommendations.length > 0)
     .map((check) => ({
+      id: check.id,
       recommendation: check.recommendations[0],
       tier: check.tier,
       score: check.score,
@@ -114,39 +186,75 @@ function topRecommendations(checks) {
 
 /**
  * @param {string} scannedPath
- * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
+ * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} timestamp
  */
 export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp) {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
+  const categoryScores = categoryBreakdown(checks);
+  const counts = statusCounts(checks);
+  const recommendations = topRecommendations(checks);
 
   const lines = [
     "# Harnix Harness Readiness Report",
     "",
+    "## Executive Summary",
+    "",
+    `- Overall score: **${overallPercent}%**`,
+    `- Qualitative band: **${band}**`,
     `- Generated: ${timestamp}`,
     `- Scanned path: \`${scannedPath}\``,
-    `- Overall: **${band} (${overallPercent}%)**`,
+    `- Checks evaluated: ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)`,
     "",
-    "## Check Results",
+    "## Category Breakdown",
     "",
-    "| Status | Check | Tier | Score | Summary |",
-    "|---|---|---|---:|---|"
+    "| Category | Checks | Average score | Pass | Partial | Fail |",
+    "|---|---:|---:|---:|---:|---:|"
   ];
 
-  for (const check of checks) {
+  for (const category of categoryScores) {
     lines.push(
-      `| ${symbolForStatus(check.status)} | ${check.name} | ${check.tier} | ${formatPercent(check.score)} | ${check.summary} |`
+      `| ${escapeMarkdownCell(formatCategoryLabel(category.category))} | ${category.count} | ${formatPercent(category.averageScore)} | ${category.pass} | ${category.partial} | ${category.fail} |`
     );
   }
 
-  const recommendations = topRecommendations(checks);
+  lines.push("", "## Detailed Findings", "");
+  for (const check of checks) {
+    lines.push(`### ${check.name} (\`${check.id}\`)`);
+    lines.push(`- Category: ${formatCategoryLabel(check.category)}`);
+    lines.push(`- Tier: ${check.tier}`);
+    lines.push(`- Score: ${formatPercent(check.score)} (${check.status})`);
+    lines.push(`- Summary: ${check.summary}`);
+    lines.push("");
+    lines.push(check.details);
+    lines.push("");
+
+    if (check.references.length > 0) {
+      lines.push("References:");
+      for (const reference of check.references) {
+        lines.push(`- \`${reference}\``);
+      }
+      lines.push("");
+    }
+
+    if (check.recommendations.length > 0) {
+      lines.push("Recommendations:");
+      check.recommendations.forEach((recommendation, index) => {
+        lines.push(`${index + 1}. ${recommendation}`);
+      });
+      lines.push("");
+    }
+  }
+
+  lines.push("## Prioritized Recommendations", "");
   if (recommendations.length > 0) {
-    lines.push("", "## Top Recommendations", "");
     recommendations.forEach((item, index) => {
-      lines.push(`${index + 1}. ${item.recommendation}`);
+      lines.push(`${index + 1}. ${item.recommendation} (${item.name}, ${item.tier})`);
     });
+  } else {
+    lines.push("No prioritized recommendations generated.");
   }
 
   lines.push("");
@@ -155,20 +263,36 @@ export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp
 
 /**
  * @param {string} scannedPath
- * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
+ * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} timestamp
  */
 export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
+  const categoryScores = categoryBreakdown(checks);
+  const counts = statusCounts(checks);
 
-  const rows = checks
+  const categoryRows = categoryScores
+    .map(
+      (category) => `<tr>
+  <td>${escapeHtml(formatCategoryLabel(category.category))}</td>
+  <td>${category.count}</td>
+  <td>${escapeHtml(formatPercent(category.averageScore))}</td>
+  <td>${category.pass}</td>
+  <td>${category.partial}</td>
+  <td>${category.fail}</td>
+</tr>`
+    )
+    .join("\n");
+
+  const resultRows = checks
     .map((check) => {
       const symbol = symbolForStatus(check.status);
       return `<tr>
   <td>${escapeHtml(symbol)}</td>
   <td>${escapeHtml(check.name)}</td>
+  <td>${escapeHtml(formatCategoryLabel(check.category))}</td>
   <td>${escapeHtml(check.tier)}</td>
   <td>${escapeHtml(formatPercent(check.score))}</td>
   <td>${escapeHtml(check.summary)}</td>
@@ -176,9 +300,49 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
     })
     .join("\n");
 
-  const recommendationItems = topRecommendations(checks)
-    .map((item) => `<li>${escapeHtml(item.recommendation)}</li>`)
+  const detailsSections = checks
+    .map((check) => {
+      const recommendationItems = check.recommendations
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("\n");
+      const referenceItems = check.references
+        .map((item) => `<li><code>${escapeHtml(item)}</code></li>`)
+        .join("\n");
+
+      return `<section class="check-detail">
+  <h3>${escapeHtml(check.name)} <code>${escapeHtml(check.id)}</code></h3>
+  <p><strong>Category:</strong> ${escapeHtml(formatCategoryLabel(check.category))}</p>
+  <p><strong>Tier:</strong> ${escapeHtml(check.tier)}</p>
+  <p><strong>Score:</strong> ${escapeHtml(formatPercent(check.score))} (${escapeHtml(check.status)})</p>
+  <p><strong>Summary:</strong> ${escapeHtml(check.summary)}</p>
+  <p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
+  ${
+    check.references.length > 0
+      ? `<p><strong>References</strong></p>
+  <ul>
+${referenceItems}
+  </ul>`
+      : ""
+  }
+  ${
+    check.recommendations.length > 0
+      ? `<p><strong>Recommendations</strong></p>
+  <ol>
+${recommendationItems}
+  </ol>`
+      : ""
+  }
+</section>`;
+    })
     .join("\n");
+
+  const recommendationItems = topRecommendations(checks)
+    .map(
+      (item) =>
+        `<li>${escapeHtml(item.recommendation)} <span class="meta">(${escapeHtml(item.name)}, ${escapeHtml(item.tier)})</span></li>`
+    )
+    .join("\n");
+  const recommendationsList = recommendationItems || "<li>No prioritized recommendations generated.</li>";
 
   return `<!doctype html>
 <html lang="en">
@@ -212,13 +376,43 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
     thead th {
       background: #d9e7cb;
     }
+    section.check-detail {
+      border: 1px solid #74796d;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0.5rem;
+    }
+    .meta {
+      color: #43483e;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
   <h1>Harnix Harness Readiness Report</h1>
+  <h2>Executive Summary</h2>
+  <p><strong>Overall score:</strong> ${escapeHtml(String(overallPercent))}%</p>
+  <p><strong>Qualitative band:</strong> ${escapeHtml(band)}</p>
   <p><strong>Generated:</strong> ${escapeHtml(timestamp)}</p>
   <p><strong>Scanned path:</strong> <code>${escapeHtml(scannedPath)}</code></p>
-  <p><strong>Overall:</strong> ${escapeHtml(band)} (${escapeHtml(String(overallPercent))}%)</p>
+  <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+
+  <h2>Category Breakdown</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Checks</th>
+        <th>Average score</th>
+        <th>Pass</th>
+        <th>Partial</th>
+        <th>Fail</th>
+      </tr>
+    </thead>
+    <tbody>
+${categoryRows}
+    </tbody>
+  </table>
 
   <h2>Check Results</h2>
   <table>
@@ -226,19 +420,23 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
       <tr>
         <th>Status</th>
         <th>Check</th>
+        <th>Category</th>
         <th>Tier</th>
         <th>Score</th>
         <th>Summary</th>
       </tr>
     </thead>
     <tbody>
-${rows}
+${resultRows}
     </tbody>
   </table>
 
-  <h2>Top Recommendations</h2>
+  <h2>Detailed Findings</h2>
+${detailsSections}
+
+  <h2>Prioritized Recommendations</h2>
   <ol>
-${recommendationItems}
+${recommendationsList}
   </ol>
 </body>
 </html>`;
@@ -246,7 +444,7 @@ ${recommendationItems}
 
 /**
  * @param {string} scannedPath
- * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
+ * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} [outputDirectory]
  */
@@ -273,7 +471,7 @@ export async function writeReportFiles(scannedPath, checks, overallScore, output
 
 /**
  * @param {string} targetPath
- * @param {Array<{name: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, recommendations: string[]}>} checks
+ * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  */
 export function printConsoleReport(targetPath, checks, overallScore) {

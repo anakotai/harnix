@@ -17,9 +17,12 @@ export const SCORE_BANDS = {
  * @typedef {object} CheckResult
  * @property {string} id
  * @property {string} name
+ * @property {string} category
  * @property {CheckTier} tier
  * @property {number} score
  * @property {CheckStatus} status
  * @property {string} summary
+ * @property {string} details
  * @property {string[]} recommendations
+ * @property {string[]} references
  */
