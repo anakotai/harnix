@@ -4,11 +4,11 @@ import { findCiSystem } from "./scanner.js";
 import { explanationForCheck } from "./knowledge-base.js";
 
 const WHY_AGENT_GUIDANCE_FALLBACK =
-  "Clear agent instructions reduce workflow mistakes and make automated contributions predictable.";
+  "Clear agent instructions reduce workflow mistakes and make automated contributions predictable. Add AGENTS.md guidance for setup, tests, and repository-specific guardrails.";
 const WHY_DOCUMENTATION_FALLBACK =
-  "Durable documentation lowers onboarding time and keeps delivery and compliance evidence repeatable.";
+  "Durable documentation lowers onboarding time and keeps delivery and compliance evidence repeatable. Keep README and docs updated with setup, run, and troubleshooting steps.";
 const WHY_CI_PIPELINE_FALLBACK =
-  "Automated CI catches regressions early and enforces quality gates before changes are merged.";
+  "Automated CI catches regressions early and enforces quality gates before changes are merged. Add or tighten CI checks for lint, tests, and builds before merge.";
 
 /**
  * @param {number} score

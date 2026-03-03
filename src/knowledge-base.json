@@ -1,7 +1,7 @@
 {
   "checkExplanations": {
-    "agents-md": "Clear agent instructions prevent workflow errors and keep autonomous edits aligned with repository-specific expectations.",
-    "documentation": "Shared documentation keeps onboarding predictable and reduces repeated clarification work across humans and agents.",
-    "ci-pipeline": "Continuous integration catches regressions early and enforces minimum quality before changes reach shared branches."
+    "agents-md": "Clear agent instructions prevent workflow errors and keep autonomous edits aligned with repository-specific expectations. Add AGENTS.md guidance for setup, tests, and repo-specific guardrails.",
+    "documentation": "Shared documentation keeps onboarding predictable and reduces repeated clarification work across humans and agents. Keep README and docs updated with setup, run, and troubleshooting steps.",
+    "ci-pipeline": "Continuous integration catches regressions early and enforces minimum quality before changes reach shared branches. Add or tighten CI checks for lint, tests, and builds before merge."
   }
 }
