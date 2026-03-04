@@ -9,6 +9,8 @@ const WHY_DOCUMENTATION_FALLBACK =
   "Durable documentation lowers onboarding time and keeps delivery and compliance evidence repeatable. Keep README and docs updated with setup, run, and troubleshooting steps.";
 const WHY_CI_PIPELINE_FALLBACK =
   "Automated CI catches regressions early and enforces quality gates before changes are merged. Add or tighten CI checks for lint, tests, and builds before merge.";
+const WHY_TESTING_PROVISION_FALLBACK =
+  "Reliable tests catch regressions early and make repository changes safer for both humans and agents. Add runnable tests, keep them isolated, and document how to execute them.";
 
 /**
  * @param {number} score
@@ -48,6 +50,9 @@ export async function runChecks(rootPath, files, options = {}) {
   }
   if (shouldRunCheck("ci-pipeline")) {
     pendingChecks.push(checkCiPipeline(files));
+  }
+  if (shouldRunCheck("testing-provision")) {
+    pendingChecks.push(checkTestingProvision(rootPath, files));
   }
 
   return Promise.all(pendingChecks);
@@ -282,6 +287,147 @@ async function checkCiPipeline(files) {
       "Keep CI checks reliable and enforce required status checks before merging."
     ],
     references: [ciSystem],
+    whyThisMatters
+  };
+}
+
+/**
+ * @param {string} rootPath
+ * @param {string[]} files
+ */
+async function checkTestingProvision(rootPath, files) {
+  const whyThisMatters = await explanationForCheck(
+    "testing-provision",
+    WHY_TESTING_PROVISION_FALLBACK
+  );
+  const lowerFiles = files.map((filePath) => filePath.toLowerCase());
+
+  const testFiles = files.filter((filePath) => {
+    const normalized = filePath.replace(/\\/g, "/");
+    const lower = normalized.toLowerCase();
+    const base = path.basename(lower);
+    return (
+      lower.startsWith("test/") ||
+      lower.startsWith("tests/") ||
+      lower.startsWith("__tests__/") ||
+      lower.includes("/__tests__/") ||
+      /\.(test|spec)\.[cm]?[jt]sx?$/.test(base)
+    );
+  });
+
+  const hasTests = testFiles.length > 0;
+  const hasIsolatedTests = lowerFiles.some((filePath) => {
+    const normalized = filePath.replace(/\\/g, "/");
+    return (
+      normalized.startsWith("test/") ||
+      normalized.startsWith("tests/") ||
+      normalized.startsWith("__tests__/") ||
+      normalized.includes("/__tests__/")
+    );
+  });
+
+  const testDocFile = files.find((filePath) =>
+    /(^|\/)(test|tests|testing)([-_a-z0-9]*)\.(md|mdx)$/i.test(filePath.replace(/\\/g, "/"))
+  );
+
+  let readmeMentionsTesting = false;
+  try {
+    const readme = await fs.readFile(path.join(rootPath, "README.md"), "utf8");
+    readmeMentionsTesting =
+      /^#{1,6}\s+.*\b(test|tests|testing)\b/im.test(readme) ||
+      /\b(test|tests|testing)\b/i.test(readme);
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        id: "testing-provision",
+        name: "Testing provision",
+        category: "quality",
+        tier: "important",
+        score: 0.1,
+        status: "fail",
+        summary: `Could not read README.md: ${message}`,
+        details:
+          "Tests may exist, but README.md could not be read to verify testing documentation quality.",
+        recommendations: [
+          "Fix README.md readability and include a concise testing section with runnable commands."
+        ],
+        references: ["README.md"],
+        whyThisMatters
+      };
+    }
+  }
+
+  const hasTestingDocs = Boolean(testDocFile) || readmeMentionsTesting;
+  const score = (hasTests ? 0.6 : 0) + (hasIsolatedTests ? 0.25 : 0) + (hasTestingDocs ? 0.15 : 0);
+
+  const references = [];
+  if (testDocFile) {
+    references.push(testDocFile);
+  }
+  if (readmeMentionsTesting) {
+    references.push("README.md");
+  }
+  if (testFiles.length > 0) {
+    references.push(...testFiles.slice(0, 3));
+  }
+
+  let summary = "Tests and testing guidance detected";
+  let details = `Detected ${testFiles.length} test file(s), ${
+    hasIsolatedTests ? "with" : "without"
+  } dedicated test directories, and ${
+    hasTestingDocs ? "with" : "without"
+  } explicit testing documentation.`;
+  /** @type {string[]} */
+  const recommendations = [
+    "Keep tests deterministic and ensure testing commands are documented for contributors and agents."
+  ];
+
+  if (!hasTests) {
+    summary = "No test files detected";
+    details =
+      "No common test files or test directories were detected. This limits confidence in automated changes.";
+    recommendations.splice(0, recommendations.length, "Add automated tests under a dedicated test directory (for example tests/ or __tests__/).");
+  } else if (!hasIsolatedTests && !hasTestingDocs) {
+    summary = "Tests exist but quality signals are incomplete";
+    details =
+      "Test files were found, but there is no dedicated test directory and no clear testing documentation.";
+    recommendations.splice(
+      0,
+      recommendations.length,
+      "Group tests in a dedicated directory and document how to run them in README.md."
+    );
+  } else if (!hasIsolatedTests) {
+    summary = "Tests exist but are not clearly isolated";
+    details =
+      "Test files were found, but no dedicated test directory was detected. Clear test layout improves maintainability.";
+    recommendations.splice(
+      0,
+      recommendations.length,
+      "Move tests into a dedicated directory (for example tests/ or __tests__/) to improve discoverability."
+    );
+  } else if (!hasTestingDocs) {
+    summary = "Tests exist but testing documentation is missing";
+    details =
+      "Automated tests and isolated structure were detected, but no explicit testing documentation was found.";
+    recommendations.splice(
+      0,
+      recommendations.length,
+      "Add a testing section to README.md with exact commands contributors should run."
+    );
+  }
+
+  return {
+    id: "testing-provision",
+    name: "Testing provision",
+    category: "quality",
+    tier: "important",
+    score,
+    status: statusFromScore(score),
+    summary,
+    details,
+    recommendations,
+    references,
     whyThisMatters
   };
 }
