@@ -39,6 +39,13 @@ function formatPercent(score) {
 }
 
 /**
+ * @param {"submodule" | "workspace"} kind
+ */
+function formatRecursiveKind(kind) {
+  return kind === "submodule" ? "Submodule" : "Workspace";
+}
+
+/**
  * @param {string} value
  */
 function escapeMarkdownCell(value) {
@@ -185,17 +192,53 @@ function topRecommendations(checks) {
 }
 
 /**
+ * @param {Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>} recursiveScans
+ */
+function recursiveBreakdown(recursiveScans) {
+  return recursiveScans
+    .map((scan) => {
+      if (scan.error || !scan.result || typeof scan.result.overallScore !== "number") {
+        return {
+          kind: scan.kind,
+          path: scan.path,
+          error: scan.error ?? "Scan failed"
+        };
+      }
+
+      const overallPercent = Math.round(scan.result.overallScore * 100);
+      const checkCount = Array.isArray(scan.result.checks) ? scan.result.checks.length : 0;
+      return {
+        kind: scan.kind,
+        path: scan.path,
+        overallScore: scan.result.overallScore,
+        overallPercent,
+        band: overallBand(overallPercent),
+        checks: checkCount
+      };
+    })
+    .sort((a, b) => {
+      const pathDelta = a.path.localeCompare(b.path);
+      if (pathDelta !== 0) {
+        return pathDelta;
+      }
+      return formatRecursiveKind(a.kind).localeCompare(formatRecursiveKind(b.kind));
+    });
+}
+
+/**
  * @param {string} scannedPath
  * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} timestamp
+ * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
  */
-export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp) {
+export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp, options = {}) {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
   const recommendations = topRecommendations(checks);
+  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
 
   const lines = [
     "# Harnix Harness Readiness Report",
@@ -218,6 +261,24 @@ export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp
     lines.push(
       `| ${escapeMarkdownCell(formatCategoryLabel(category.category))} | ${category.count} | ${formatPercent(category.averageScore)} | ${category.pass} | ${category.partial} | ${category.fail} |`
     );
+  }
+
+  if (recursiveScans.length > 0) {
+    lines.push("", "## Workspace and Submodule Breakdown", "");
+    lines.push("| Type | Path | Overall | Band | Checks |");
+    lines.push("|---|---|---:|---|---:|");
+    for (const entry of recursiveScans) {
+      if ("error" in entry) {
+        lines.push(
+          `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | N/A | Scan failed | 0 |`
+        );
+        continue;
+      }
+
+      lines.push(
+        `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | ${entry.overallPercent}% | ${escapeMarkdownCell(entry.band)} | ${entry.checks} |`
+      );
+    }
   }
 
   lines.push("", "## Detailed Findings", "");
@@ -266,12 +327,14 @@ export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp
  * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} timestamp
+ * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
  */
-export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
+export function buildHtmlReport(scannedPath, checks, overallScore, timestamp, options = {}) {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
+  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
 
   const categoryRows = categoryScores
     .map((category) => {
@@ -303,6 +366,32 @@ export function buildHtmlReport(scannedPath, checks, overallScore, timestamp) {
   <td>${escapeHtml(check.tier)}</td>
   <td>${escapeHtml(formatPercent(check.score))}</td>
   <td>${escapeHtml(check.summary)}</td>
+</tr>`;
+    })
+    .join("\n");
+
+  const recursiveRows = recursiveScans
+    .map((entry) => {
+      if ("error" in entry) {
+        return `<tr>
+  <td>${escapeHtml(formatRecursiveKind(entry.kind))}</td>
+  <td><code>${escapeHtml(entry.path)}</code></td>
+  <td colspan="4">Scan failed</td>
+</tr>`;
+      }
+
+      return `<tr>
+  <td>${escapeHtml(formatRecursiveKind(entry.kind))}</td>
+  <td><code>${escapeHtml(entry.path)}</code></td>
+  <td>${escapeHtml(String(entry.overallPercent))}%</td>
+  <td>${escapeHtml(entry.band)}</td>
+  <td>${entry.checks}</td>
+  <td>
+    <div class="score-track" aria-hidden="true">
+      <div class="score-fill" style="width: ${entry.overallPercent}%"></div>
+    </div>
+    <span class="metric-label">${entry.overallPercent}%</span>
+  </td>
 </tr>`;
     })
     .join("\n");
@@ -609,6 +698,27 @@ ${categoryRows}
       </tbody>
     </table>
 
+    ${
+      recursiveRows
+        ? `<h2>Workspace and Submodule Breakdown</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Path</th>
+          <th>Overall</th>
+          <th>Band</th>
+          <th>Checks</th>
+          <th>Visualization</th>
+        </tr>
+      </thead>
+      <tbody>
+${recursiveRows}
+      </tbody>
+    </table>`
+        : ""
+    }
+
     <h2>Check Results</h2>
     <table>
       <thead>
@@ -702,8 +812,9 @@ ${recommendationsList}
  * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
  * @param {number} overallScore
  * @param {string} [outputDirectory]
+ * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
  */
-export async function writeReportFiles(scannedPath, checks, overallScore, outputDirectory) {
+export async function writeReportFiles(scannedPath, checks, overallScore, outputDirectory, options = {}) {
   const timestamp = reportTimestamp();
   const resolvedOutputDirectory = outputDirectory
     ? path.resolve(outputDirectory)
@@ -713,8 +824,8 @@ export async function writeReportFiles(scannedPath, checks, overallScore, output
 
   await fs.mkdir(resolvedOutputDirectory, { recursive: true });
 
-  const markdownContent = buildMarkdownReport(scannedPath, checks, overallScore, timestamp);
-  const htmlContent = buildHtmlReport(scannedPath, checks, overallScore, timestamp);
+  const markdownContent = buildMarkdownReport(scannedPath, checks, overallScore, timestamp, options);
+  const htmlContent = buildHtmlReport(scannedPath, checks, overallScore, timestamp, options);
 
   await Promise.all([
     fs.writeFile(markdownPath, markdownContent, "utf8"),
@@ -728,16 +839,29 @@ export async function writeReportFiles(scannedPath, checks, overallScore, output
  * @param {string} targetPath
  * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[], whyThisMatters?: string}>} checks
  * @param {number} overallScore
- * @param {{verbose?: boolean}} [options]
+ * @param {{verbose?: boolean, recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
  */
 export function printConsoleReport(targetPath, checks, overallScore, options = {}) {
   const verbose = options.verbose === true;
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
+  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
 
   console.log(`Harness Readiness Report: ${targetPath}`);
   console.log("───────────────────────────────────────");
   console.log(`Overall: ${band} (${overallPercent}%)`);
+  if (recursiveScans.length > 0) {
+    console.log("Monorepo breakdown:");
+    for (const entry of recursiveScans) {
+      if ("error" in entry) {
+        console.log(`- ${formatRecursiveKind(entry.kind)} ${entry.path}: scan failed`);
+      } else {
+        console.log(
+          `- ${formatRecursiveKind(entry.kind)} ${entry.path}: ${entry.band} (${entry.overallPercent}%)`
+        );
+      }
+    }
+  }
   console.log("");
 
   for (const check of checks) {

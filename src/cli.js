@@ -297,13 +297,17 @@ export async function runCli(args) {
     onlyIds: effectiveOnlyIds,
     repoType: effectiveRepoType
   });
-  printConsoleReport(targetPath, result.checks, result.overallScore, { verbose });
+  printConsoleReport(targetPath, result.checks, result.overallScore, {
+    verbose,
+    recursiveScans: result.recursiveScans
+  });
 
   const reports = await writeReportFiles(
     result.absolutePath,
     result.checks,
     result.overallScore,
-    resolvedOutputPath
+    resolvedOutputPath,
+    { recursiveScans: result.recursiveScans }
   );
   console.log("");
   console.log(`Reports written: ${reports.markdownPath}`);
