@@ -75,14 +75,15 @@ export async function listFiles(rootPath) {
  * @param {string[]} files
  */
 export function detectRepoType(files) {
-  const normalized = new Set(files.map((filePath) => filePath.toLowerCase()));
+  const markerNames = new Set(SOFTWARE_MARKERS.map((marker) => marker.toLowerCase()));
   const hasDotnetSolution = files.some((filePath) => {
-    const lowerFilePath = filePath.toLowerCase();
-    return lowerFilePath.endsWith(".sln") || lowerFilePath.endsWith(".csproj");
+    const fileName = path.posix.basename(filePath.replace(/\\/g, "/")).toLowerCase();
+    return fileName.endsWith(".sln") || fileName.endsWith(".csproj");
   });
-  const hasSoftwareMarker = SOFTWARE_MARKERS.some((marker) =>
-    normalized.has(marker.toLowerCase())
-  );
+  const hasSoftwareMarker = files.some((filePath) => {
+    const fileName = path.posix.basename(filePath.replace(/\\/g, "/")).toLowerCase();
+    return markerNames.has(fileName);
+  });
 
   return hasSoftwareMarker || hasDotnetSolution ? "software" : "non-software";
 }
