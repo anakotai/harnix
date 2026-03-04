@@ -21,6 +21,7 @@ function printHelp() {
   console.log("  --output <path>  Write reports to a custom output directory");
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
+  console.log("  --type <type>    Override repo type (software | non-software)");
 }
 
 /**
@@ -163,12 +164,31 @@ function dedupeIds(ids) {
 }
 
 /**
+ * @param {string} optionName
+ * @param {string} rawValue
+ */
+function parseRepoType(optionName, rawValue) {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+    throw new Error(`Missing value for ${optionName}`);
+  }
+
+  const normalized = rawValue.trim();
+  if (!VALID_REPO_TYPES.has(normalized)) {
+    throw new Error(`Invalid value for ${optionName}: ${normalized}`);
+  }
+
+  return normalized;
+}
+
+/**
  * @param {string[]} args
  */
 function parseScanArgs(args) {
   let targetPath = ".";
   let hasTargetPath = false;
   let outputPath;
+  /** @type {"software" | "non-software" | undefined} */
+  let repoType;
   let verbose = false;
   /** @type {string[]} */
   const skipIds = [];
@@ -233,6 +253,19 @@ function parseScanArgs(args) {
       continue;
     }
 
+    if (argument === "--type") {
+      const value = args[index + 1];
+      repoType = parseRepoType("--type", value);
+      index += 1;
+      continue;
+    }
+
+    if (argument.startsWith("--type=")) {
+      const value = argument.slice("--type=".length);
+      repoType = parseRepoType("--type", value);
+      continue;
+    }
+
     if (argument.startsWith("-")) {
       throw new Error(`Unknown option: ${argument}`);
     }
@@ -255,6 +288,7 @@ function parseScanArgs(args) {
   return {
     targetPath,
     outputPath,
+    repoType,
     verbose,
     skipIds: uniqueSkipIds,
     onlyIds: uniqueOnlyIds
@@ -276,7 +310,9 @@ export async function runCli(args) {
     throw new Error(`Unknown command: ${command}`);
   }
 
-  const { targetPath, outputPath, verbose, skipIds, onlyIds } = parseScanArgs(commandArgs);
+  const { targetPath, outputPath, repoType, verbose, skipIds, onlyIds } = parseScanArgs(
+    commandArgs
+  );
   const resolvedPath = path.resolve(targetPath);
   await ensureDirectory(resolvedPath);
   const config = await loadScanConfig(resolvedPath);
@@ -290,7 +326,7 @@ export async function runCli(args) {
   const effectiveOnlyIds = onlyIds;
   const effectiveSkipIds =
     effectiveOnlyIds.length > 0 ? [] : skipIds.length > 0 ? skipIds : (config.skipIds ?? []);
-  const effectiveRepoType = config.repoType;
+  const effectiveRepoType = repoType ?? config.repoType;
 
   const result = await scanRepository(resolvedPath, {
     skipIds: effectiveSkipIds,
@@ -312,4 +348,6 @@ export async function runCli(args) {
   console.log("");
   console.log(`Reports written: ${reports.markdownPath}`);
   console.log(`                 ${reports.htmlPath}`);
+
+  return result;
 }
