@@ -12,6 +12,39 @@ const WHY_CI_PIPELINE_FALLBACK =
 const WHY_TESTING_PROVISION_FALLBACK =
   "Reliable tests catch regressions early and make repository changes safer for both humans and agents. Add runnable tests, keep them isolated, and document how to execute them.";
 
+/** @typedef {"all" | "software" | "non-software"} ApplicableTo */
+
+/**
+ * @typedef {object} CheckDefinition
+ * @property {string} id
+ * @property {ApplicableTo} applicableTo
+ * @property {(rootPath: string, files: string[]) => Promise<object>} run
+ */
+
+/** @type {CheckDefinition[]} */
+const CHECK_DEFINITIONS = [
+  {
+    id: "agents-md",
+    applicableTo: "all",
+    run: (rootPath, files) => checkAgentGuidance(rootPath, files)
+  },
+  {
+    id: "documentation",
+    applicableTo: "all",
+    run: (rootPath, files) => checkDocumentation(rootPath, files)
+  },
+  {
+    id: "ci-pipeline",
+    applicableTo: "software",
+    run: (_rootPath, files) => checkCiPipeline(files)
+  },
+  {
+    id: "testing-provision",
+    applicableTo: "software",
+    run: (rootPath, files) => checkTestingProvision(rootPath, files)
+  }
+];
+
 /**
  * @param {number} score
  * @returns {"pass" | "partial" | "fail"}
@@ -30,30 +63,21 @@ function statusFromScore(score) {
 /**
  * @param {string} rootPath
  * @param {string[]} files
- * @param {{skipIds?: string[], onlyIds?: string[]}} [options]
+ * @param {{skipIds?: string[], onlyIds?: string[], repoType?: "software" | "non-software"}} [options]
  */
 export async function runChecks(rootPath, files, options = {}) {
+  const repoType = options.repoType ?? "software";
   const skipIds = new Set(options.skipIds ?? []);
   const onlyIds = new Set(options.onlyIds ?? []);
   const hasOnlyFilter = onlyIds.size > 0;
-  /** @type {Array<Promise<object>>} */
-  const pendingChecks = [];
+  const shouldRunCheck = (checkId, applicableTo) =>
+    (!hasOnlyFilter || onlyIds.has(checkId)) &&
+    !skipIds.has(checkId) &&
+    (applicableTo === "all" || applicableTo === repoType);
 
-  const shouldRunCheck = (checkId) =>
-    (!hasOnlyFilter || onlyIds.has(checkId)) && !skipIds.has(checkId);
-
-  if (shouldRunCheck("agents-md")) {
-    pendingChecks.push(checkAgentGuidance(rootPath, files));
-  }
-  if (shouldRunCheck("documentation")) {
-    pendingChecks.push(checkDocumentation(rootPath, files));
-  }
-  if (shouldRunCheck("ci-pipeline")) {
-    pendingChecks.push(checkCiPipeline(files));
-  }
-  if (shouldRunCheck("testing-provision")) {
-    pendingChecks.push(checkTestingProvision(rootPath, files));
-  }
+  const pendingChecks = CHECK_DEFINITIONS.filter(({ id, applicableTo }) =>
+    shouldRunCheck(id, applicableTo)
+  ).map((definition) => definition.run(rootPath, files));
 
   return Promise.all(pendingChecks);
 }
