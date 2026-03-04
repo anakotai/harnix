@@ -27,3 +27,12 @@ export const SCORE_BANDS = {
  * @property {string[]} recommendations
  * @property {string[]} references
  */
+
+/**
+ * @typedef {object} RecursiveScanResult
+ * @property {"submodule" | "workspace"} kind
+ * @property {string} path
+ * @property {string} absolutePath
+ * @property {object} [result]
+ * @property {string} [error]
+ */
