@@ -1,7 +1,14 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { parseDocument } from "yaml";
 import { scanRepository } from "./engine.js";
 import { printConsoleReport, writeReportFiles } from "./report.js";
+
+const VALID_REPO_TYPES = new Set(["software", "non-software"]);
+
+/**
+ * @typedef {{outputPath?: string, skipIds?: string[], repoType?: "software" | "non-software"}} ScanConfig
+ */
 
 function printHelp() {
   console.log("Usage: harnix scan [path]");
@@ -39,17 +46,92 @@ async function ensureDirectory(targetPath) {
  */
 async function loadScanConfig(scanRootPath) {
   const configPath = path.join(scanRootPath, ".harnix.yaml");
+  let configContent;
 
   try {
-    return await fs.readFile(configPath, "utf8");
+    configContent = await fs.readFile(configPath, "utf8");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return null;
+      return {};
     }
 
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read .harnix.yaml at ${configPath}: ${message}`);
   }
+
+  return parseScanConfig(configContent, configPath);
+}
+
+/**
+ * @param {string} configContent
+ * @param {string} configPath
+ * @returns {ScanConfig}
+ */
+function parseScanConfig(configContent, configPath) {
+  let parsedDocument;
+  try {
+    parsedDocument = parseDocument(configContent);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid .harnix.yaml at ${configPath}: ${message}`);
+  }
+
+  if (parsedDocument.errors.length > 0) {
+    const [firstError] = parsedDocument.errors;
+    const message = firstError?.message ?? "Unable to parse YAML";
+    throw new Error(`Invalid .harnix.yaml at ${configPath}: ${message}`);
+  }
+
+  const rawConfig = parsedDocument.toJS();
+  if (rawConfig == null) {
+    return {};
+  }
+
+  if (typeof rawConfig !== "object" || Array.isArray(rawConfig)) {
+    throw new Error(`Invalid .harnix.yaml at ${configPath}: top-level value must be a mapping`);
+  }
+
+  /** @type {ScanConfig} */
+  const normalizedConfig = {};
+
+  if ("output" in rawConfig) {
+    const { output } = rawConfig;
+    if (typeof output !== "string" || output.trim().length === 0) {
+      throw new Error(`Invalid .harnix.yaml at ${configPath}: output must be a non-empty string`);
+    }
+    normalizedConfig.outputPath = output.trim();
+  }
+
+  if ("skip" in rawConfig) {
+    const { skip } = rawConfig;
+    if (!Array.isArray(skip)) {
+      throw new Error(`Invalid .harnix.yaml at ${configPath}: skip must be an array of check IDs`);
+    }
+
+    const skipIds = skip.map((item) => {
+      if (typeof item !== "string" || item.trim().length === 0) {
+        throw new Error(
+          `Invalid .harnix.yaml at ${configPath}: skip entries must be non-empty strings`
+        );
+      }
+      return item.trim();
+    });
+
+    normalizedConfig.skipIds = dedupeIds(skipIds);
+  }
+
+  if ("type" in rawConfig) {
+    const { type } = rawConfig;
+    if (typeof type !== "string" || !VALID_REPO_TYPES.has(type)) {
+      throw new Error(
+        `Invalid .harnix.yaml at ${configPath}: type must be \"software\" or \"non-software\"`
+      );
+    }
+
+    normalizedConfig.repoType = type;
+  }
+
+  return normalizedConfig;
 }
 
 /**
@@ -196,11 +278,25 @@ export async function runCli(args) {
 
   const { targetPath, outputPath, verbose, skipIds, onlyIds } = parseScanArgs(commandArgs);
   const resolvedPath = path.resolve(targetPath);
-  const resolvedOutputPath = outputPath ? path.resolve(outputPath) : undefined;
   await ensureDirectory(resolvedPath);
-  await loadScanConfig(resolvedPath);
+  const config = await loadScanConfig(resolvedPath);
 
-  const result = await scanRepository(resolvedPath, { skipIds, onlyIds });
+  const resolvedOutputPath = outputPath
+    ? path.resolve(outputPath)
+    : config.outputPath
+      ? path.resolve(resolvedPath, config.outputPath)
+      : undefined;
+
+  const effectiveOnlyIds = onlyIds;
+  const effectiveSkipIds =
+    effectiveOnlyIds.length > 0 ? [] : skipIds.length > 0 ? skipIds : (config.skipIds ?? []);
+  const effectiveRepoType = config.repoType;
+
+  const result = await scanRepository(resolvedPath, {
+    skipIds: effectiveSkipIds,
+    onlyIds: effectiveOnlyIds,
+    repoType: effectiveRepoType
+  });
   printConsoleReport(targetPath, result.checks, result.overallScore, { verbose });
 
   const reports = await writeReportFiles(

@@ -9,5 +9,8 @@
   "scripts": {
     "scan": "node bin/harnix.js scan ."
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "yaml": "^2.8.2"
+  }
 }
