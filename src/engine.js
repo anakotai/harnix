@@ -1,5 +1,5 @@
 import path from "node:path";
-import { detectRepoType, listFiles } from "./scanner.js";
+import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
 import { runChecks } from "./checks.js";
 
 /**
@@ -10,6 +10,7 @@ export async function scanRepository(targetPath, options = {}) {
   const absolutePath = path.resolve(targetPath);
   const files = await listFiles(absolutePath);
   const repoType = options.repoType ?? detectRepoType(files);
+  const gitInfo = await detectGitInfo(absolutePath, files);
   const checks = await runChecks(absolutePath, files, {
     skipIds: options.skipIds,
     onlyIds: options.onlyIds,
@@ -22,6 +23,7 @@ export async function scanRepository(targetPath, options = {}) {
   return {
     absolutePath,
     repoType,
+    gitInfo,
     overallScore,
     checks
   };

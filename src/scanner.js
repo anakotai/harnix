@@ -24,6 +24,13 @@ const CI_MARKERS = [
   "azure-pipelines.yml"
 ];
 
+const ROOT_WORKSPACE_MARKERS = {
+  pnpmWorkspace: "pnpm-workspace.yaml",
+  lerna: "lerna.json",
+  nx: "nx.json",
+  turborepo: "turbo.json"
+};
+
 const IGNORED_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"]);
 
 /**
@@ -77,6 +84,127 @@ export function detectRepoType(files) {
   );
 
   return hasSoftwareMarker || hasDotnetSolution ? "software" : "non-software";
+}
+
+/**
+ * @param {string} rootPath
+ * @param {string[]} files
+ */
+export async function detectGitInfo(rootPath, files) {
+  const normalizedFiles = new Set(
+    files.map((filePath) => filePath.replace(/\\/g, "/").toLowerCase())
+  );
+
+  const hasSubmodules = normalizedFiles.has(".gitmodules");
+  const submodules = hasSubmodules ? await readSubmodulePaths(rootPath) : [];
+
+  const workspaceConfig = {
+    npmWorkspaces: await hasNpmWorkspaces(rootPath, normalizedFiles),
+    pnpmWorkspace: normalizedFiles.has(ROOT_WORKSPACE_MARKERS.pnpmWorkspace),
+    cargoWorkspace: await hasCargoWorkspace(rootPath, normalizedFiles),
+    lerna: normalizedFiles.has(ROOT_WORKSPACE_MARKERS.lerna),
+    nx: normalizedFiles.has(ROOT_WORKSPACE_MARKERS.nx),
+    turborepo: normalizedFiles.has(ROOT_WORKSPACE_MARKERS.turborepo)
+  };
+
+  const detected = Object.entries(workspaceConfig)
+    .filter(([, enabled]) => enabled)
+    .map(([marker]) => marker);
+
+  return {
+    hasSubmodules,
+    submodules,
+    hasWorkspaces: detected.length > 0,
+    workspaceConfig: {
+      ...workspaceConfig,
+      detected
+    }
+  };
+}
+
+/**
+ * @param {string} rootPath
+ */
+async function readSubmodulePaths(rootPath) {
+  try {
+    const gitmodulesContent = await fs.readFile(path.join(rootPath, ".gitmodules"), "utf8");
+    const submodulePaths = Array.from(
+      gitmodulesContent.matchAll(/^\s*path\s*=\s*(.+?)\s*$/gm),
+      (match) => match[1].trim().replace(/^['"]|['"]$/g, "")
+    )
+      .filter((candidate) => candidate.length > 0)
+      .map((candidate) => candidate.replace(/\\/g, "/"));
+
+    return Array.from(new Set(submodulePaths));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * @param {string} rootPath
+ * @param {Set<string>} normalizedFiles
+ */
+async function hasNpmWorkspaces(rootPath, normalizedFiles) {
+  if (!normalizedFiles.has("package.json")) {
+    return false;
+  }
+
+  try {
+    const packageJson = await fs.readFile(path.join(rootPath, "package.json"), "utf8");
+    const parsed = JSON.parse(packageJson);
+    const workspaces = parsed?.workspaces;
+
+    if (Array.isArray(workspaces)) {
+      return workspaces.some((entry) => typeof entry === "string" && entry.trim().length > 0);
+    }
+
+    if (workspaces && typeof workspaces === "object") {
+      const hasPatterns = (value) => {
+        if (typeof value === "string") {
+          return value.trim().length > 0;
+        }
+        if (Array.isArray(value)) {
+          return value.some((entry) => typeof entry === "string" && entry.trim().length > 0);
+        }
+        return false;
+      };
+
+      if (hasPatterns(workspaces.packages)) {
+        return true;
+      }
+
+      return Object.values(workspaces).some((value) => hasPatterns(value));
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} rootPath
+ * @param {Set<string>} normalizedFiles
+ */
+async function hasCargoWorkspace(rootPath, normalizedFiles) {
+  if (!normalizedFiles.has("cargo.toml")) {
+    return false;
+  }
+
+  for (const candidate of ["Cargo.toml", "cargo.toml"]) {
+    try {
+      const cargoToml = await fs.readFile(path.join(rootPath, candidate), "utf8");
+      return /^\s*\[workspace\]\s*$/m.test(cargoToml);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        continue;
+      }
+      return false;
+    }
+  }
+
+  return false;
 }
 
 /**
