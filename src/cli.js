@@ -35,6 +35,24 @@ async function ensureDirectory(targetPath) {
 }
 
 /**
+ * @param {string} scanRootPath
+ */
+async function loadScanConfig(scanRootPath) {
+  const configPath = path.join(scanRootPath, ".harnix.yaml");
+
+  try {
+    return await fs.readFile(configPath, "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read .harnix.yaml at ${configPath}: ${message}`);
+  }
+}
+
+/**
  * @param {string} optionName
  * @param {string} rawValue
  */
@@ -180,6 +198,7 @@ export async function runCli(args) {
   const resolvedPath = path.resolve(targetPath);
   const resolvedOutputPath = outputPath ? path.resolve(outputPath) : undefined;
   await ensureDirectory(resolvedPath);
+  await loadScanConfig(resolvedPath);
 
   const result = await scanRepository(resolvedPath, { skipIds, onlyIds });
   printConsoleReport(targetPath, result.checks, result.overallScore, { verbose });
