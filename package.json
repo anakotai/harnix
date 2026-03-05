@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
     "scan": "node bin/harnix.js scan .",
     "test": "vitest run"
   },
@@ -19,8 +20,12 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.3.3",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   }
 }

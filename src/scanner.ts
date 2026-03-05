@@ -45,7 +45,8 @@ export async function listFiles(rootPath: string): Promise<string[]> {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Failed to read directory "${absoluteDir}" while scanning "${rootPath}": ${message}`
+        `Failed to read directory "${absoluteDir}" while scanning "${rootPath}": ${message}`,
+        { cause: error },
       );
     }
 

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import type { CheckResult, RecursiveScanResult } from "./types.js";
+import type { CheckResult } from "./types.js";
 import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
 import type { GitInfo } from "./scanner.js";
 

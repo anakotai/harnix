@@ -74,7 +74,6 @@ describe("tier-weighted scoring", () => {
     });
     // Verify the score is a weighted average, not a simple mean
     const checks = result.checks;
-    const simpleAvg = checks.reduce((s, c) => s + c.score, 0) / checks.length;
     const weightedSum = checks.reduce((s, c) => s + tierWeight(c.tier) * c.score, 0);
     const totalWeight = checks.reduce((s, c) => s + tierWeight(c.tier), 0);
     const weightedAvg = weightedSum / totalWeight;

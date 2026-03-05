@@ -131,7 +131,7 @@ function detectConfigViolations(files: string[]): Violation | null {
   );
 
   const violations: string[] = [];
-  for (const [name, paths] of configGroups) {
+  for (const [_name, paths] of configGroups) {
     const dirs = new Set(
       paths.map((p) => {
         const parts = p.split('/');

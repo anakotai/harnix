@@ -58,7 +58,7 @@ async function ensureDirectory(targetPath: string): Promise<void> {
     stats = await fs.stat(targetPath);
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      throw new Error(`Path does not exist: ${targetPath}`);
+      throw new Error(`Path does not exist: ${targetPath}`, { cause: error });
     }
     throw error;
   }
@@ -79,7 +79,7 @@ async function loadScanConfig(scanRootPath: string): Promise<ScanConfig> {
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read .harnix.yaml at ${configPath}: ${message}`);
+    throw new Error(`Failed to read .harnix.yaml at ${configPath}: ${message}`, { cause: error });
   }
 
   return parseScanConfig(configContent, configPath);
@@ -91,7 +91,7 @@ function parseScanConfig(configContent: string, configPath: string): ScanConfig 
     parsedDocument = parseDocument(configContent);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid .harnix.yaml at ${configPath}: ${message}`);
+    throw new Error(`Invalid .harnix.yaml at ${configPath}: ${message}`, { cause: error });
   }
 
   if (parsedDocument.errors.length > 0) {
