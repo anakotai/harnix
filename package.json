@@ -7,6 +7,7 @@
     "harnix": "bin/harnix.js"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "scan": "node bin/harnix.js scan ."
   },
   "license": "Apache-2.0",
