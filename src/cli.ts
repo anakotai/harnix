@@ -13,6 +13,7 @@ const VALID_REPO_TYPES = new Set(["software", "non-software"]);
 interface ScanConfig {
   outputPath?: string;
   skipIds?: string[];
+  onlyIds?: string[];
   repoType?: "software" | "non-software";
 }
 
@@ -135,6 +136,31 @@ function parseScanConfig(configContent: string, configPath: string): ScanConfig 
     });
 
     normalizedConfig.skipIds = dedupeIds(skipIds);
+  }
+
+  if ("only" in config) {
+    const { only } = config;
+    if (!Array.isArray(only)) {
+      throw new Error(`Invalid .harnix.yaml at ${configPath}: only must be an array of check IDs`);
+    }
+
+    const onlyIds = only.map((item: unknown) => {
+      if (typeof item !== "string" || (item as string).trim().length === 0) {
+        throw new Error(
+          `Invalid .harnix.yaml at ${configPath}: only entries must be non-empty strings`
+        );
+      }
+      return (item as string).trim();
+    });
+
+    normalizedConfig.onlyIds = dedupeIds(onlyIds);
+  }
+
+  if (normalizedConfig.skipIds && normalizedConfig.skipIds.length > 0 &&
+      normalizedConfig.onlyIds && normalizedConfig.onlyIds.length > 0) {
+    throw new Error(
+      `Invalid .harnix.yaml at ${configPath}: skip and only cannot be used together`
+    );
   }
 
   if ("type" in config) {
@@ -343,7 +369,8 @@ export async function runCli(args: string[]): Promise<void> {
       ? path.resolve(resolvedPath, config.outputPath)
       : undefined;
 
-  const effectiveOnlyIds = onlyIds;
+  const effectiveOnlyIds =
+    onlyIds.length > 0 ? onlyIds : (config.onlyIds ?? []);
   const effectiveSkipIds =
     effectiveOnlyIds.length > 0 ? [] : skipIds.length > 0 ? skipIds : (config.skipIds ?? []);
   const effectiveRepoType = repoType ?? config.repoType;
