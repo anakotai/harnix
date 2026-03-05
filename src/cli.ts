@@ -4,11 +4,10 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 import { scanRepository } from "./engine.js";
 import { printConsoleReport, writeReportFiles } from "./report.js";
+import { configSchema } from "./schemas/config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
-
-const VALID_REPO_TYPES = new Set(["software", "non-software"]);
 
 interface ScanConfig {
   outputPath?: string;
@@ -109,69 +108,28 @@ function parseScanConfig(configContent: string, configPath: string): ScanConfig 
     throw new Error(`Invalid .harnix.yaml at ${configPath}: top-level value must be a mapping`);
   }
 
-  const config = rawConfig as Record<string, unknown>;
+  const result = configSchema.safeParse(rawConfig);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Invalid .harnix.yaml at ${configPath}: ${issues}`);
+  }
+
+  const config = result.data;
   const normalizedConfig: ScanConfig = {};
 
-  if ("output" in config) {
-    const { output } = config;
-    if (typeof output !== "string" || output.trim().length === 0) {
-      throw new Error(`Invalid .harnix.yaml at ${configPath}: output must be a non-empty string`);
-    }
-    normalizedConfig.outputPath = output.trim();
+  if (config.output) {
+    normalizedConfig.outputPath = config.output;
   }
-
-  if ("skip" in config) {
-    const { skip } = config;
-    if (!Array.isArray(skip)) {
-      throw new Error(`Invalid .harnix.yaml at ${configPath}: skip must be an array of check IDs`);
-    }
-
-    const skipIds = skip.map((item: unknown) => {
-      if (typeof item !== "string" || (item as string).trim().length === 0) {
-        throw new Error(
-          `Invalid .harnix.yaml at ${configPath}: skip entries must be non-empty strings`
-        );
-      }
-      return (item as string).trim();
-    });
-
-    normalizedConfig.skipIds = dedupeIds(skipIds);
+  if (config.skip && config.skip.length > 0) {
+    normalizedConfig.skipIds = dedupeIds(config.skip);
   }
-
-  if ("only" in config) {
-    const { only } = config;
-    if (!Array.isArray(only)) {
-      throw new Error(`Invalid .harnix.yaml at ${configPath}: only must be an array of check IDs`);
-    }
-
-    const onlyIds = only.map((item: unknown) => {
-      if (typeof item !== "string" || (item as string).trim().length === 0) {
-        throw new Error(
-          `Invalid .harnix.yaml at ${configPath}: only entries must be non-empty strings`
-        );
-      }
-      return (item as string).trim();
-    });
-
-    normalizedConfig.onlyIds = dedupeIds(onlyIds);
+  if (config.only && config.only.length > 0) {
+    normalizedConfig.onlyIds = dedupeIds(config.only);
   }
-
-  if (normalizedConfig.skipIds && normalizedConfig.skipIds.length > 0 &&
-      normalizedConfig.onlyIds && normalizedConfig.onlyIds.length > 0) {
-    throw new Error(
-      `Invalid .harnix.yaml at ${configPath}: skip and only cannot be used together`
-    );
-  }
-
-  if ("type" in config) {
-    const { type } = config;
-    if (typeof type !== "string" || !VALID_REPO_TYPES.has(type)) {
-      throw new Error(
-        `Invalid .harnix.yaml at ${configPath}: type must be "software" or "non-software"`
-      );
-    }
-
-    normalizedConfig.repoType = type as "software" | "non-software";
+  if (config.type) {
+    normalizedConfig.repoType = config.type;
   }
 
   return normalizedConfig;
@@ -204,7 +162,8 @@ function parseRepoType(optionName: string, rawValue: string | undefined): "softw
   }
 
   const normalized = rawValue.trim();
-  if (!VALID_REPO_TYPES.has(normalized)) {
+  const validTypes = new Set(["software", "non-software"]);
+  if (!validTypes.has(normalized)) {
     throw new Error(`Invalid value for ${optionName}: ${normalized}`);
   }
 
