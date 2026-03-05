@@ -1,8 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 import { scanRepository } from "./engine.js";
 import { printConsoleReport, writeReportFiles } from "./report.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
 
 const VALID_REPO_TYPES = new Set(["software", "non-software"]);
 
@@ -12,11 +16,31 @@ interface ScanConfig {
   repoType?: "software" | "non-software";
 }
 
+async function readVersion(): Promise<string> {
+  const packageJsonPath = path.join(HARNIX_ROOT, "package.json");
+  const content = await fs.readFile(packageJsonPath, "utf8");
+  const pkg = JSON.parse(content) as { version: string };
+  return pkg.version;
+}
+
 function printHelp(): void {
-  console.log("Usage: harnix scan [path]");
+  console.log("Usage: harnix <command> [options]");
   console.log("");
   console.log("Commands:");
   console.log("  scan [path]   Scan a repository for harness readiness");
+  console.log("");
+  console.log("Options:");
+  console.log("  --help, -h       Show help text");
+  console.log("  --version, -V    Show version number");
+}
+
+function printScanHelp(): void {
+  console.log("Usage: harnix scan [path] [options]");
+  console.log("");
+  console.log("Scan a repository for harness readiness.");
+  console.log("");
+  console.log("Arguments:");
+  console.log("  path             Path to repository (default: current directory)");
   console.log("");
   console.log("Options:");
   console.log("  --verbose        Show per-check rationale in console output");
@@ -24,6 +48,7 @@ function printHelp(): void {
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
   console.log("  --type <type>    Override repo type (software | non-software)");
+  console.log("  --help, -h       Show this help text");
 }
 
 async function ensureDirectory(targetPath: string): Promise<void> {
@@ -286,8 +311,23 @@ export async function runCli(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "--version" || command === "-V") {
+    const version = await readVersion();
+    console.log(version);
+    return;
+  }
+
   if (command !== "scan") {
-    throw new Error(`Unknown command: ${command}`);
+    console.error(`Unknown command: ${command}`);
+    console.error("");
+    printHelp();
+    process.exitCode = 1;
+    return;
+  }
+
+  if (commandArgs.includes("--help") || commandArgs.includes("-h")) {
+    printScanHelp();
+    return;
   }
 
   const { targetPath, outputPath, repoType, verbose, skipIds, onlyIds } = parseScanArgs(
