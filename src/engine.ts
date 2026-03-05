@@ -173,6 +173,16 @@ export interface RecursiveScanEntry {
   error?: string;
 }
 
+const TIER_WEIGHTS: Record<string, number> = {
+  critical: 3,
+  important: 2,
+  "nice-to-have": 1
+};
+
+function tierWeight(tier: string): number {
+  return TIER_WEIGHTS[tier] ?? 1;
+}
+
 export async function scanRepository(targetPath: string, options: ScanOptions = {}): Promise<ScanResult> {
   const absolutePath = path.resolve(targetPath);
   const recursive = options.recursive !== false;
@@ -199,8 +209,9 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
       })
     : [];
 
-  const total = checks.reduce((sum, check) => sum + check.score, 0);
-  const overallScore = checks.length > 0 ? total / checks.length : 0;
+  const weightedSum = checks.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
+  const totalWeight = checks.reduce((sum, check) => sum + tierWeight(check.tier), 0);
+  const overallScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
   return {
     absolutePath,
