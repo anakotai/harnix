@@ -91,8 +91,11 @@ import type { ScanContext, CheckResult } from "../../src/types.js";
 
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   let score = 0;
-  const findings: string[] = [];
+  let status: CheckResult["status"] = "fail";
+  let summary = "Missing required evidence";
+  let details = "The expected repository signal was not detected.";
   const recommendations: string[] = [];
+  const references: string[] = [];
 
   // Your check logic here
   // ctx.rootPath — absolute path to the scanned repository
@@ -102,7 +105,10 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
 
   if (/* condition met */) {
     score = 1.0;
-    findings.push("Detected the thing we're looking for");
+    status = "pass";
+    summary = "Detected the thing we're looking for";
+    details = "The check found the expected files and configuration.";
+    references.push("path/to/relevant-file");
   } else {
     recommendations.push("Add the thing we're looking for");
   }
@@ -113,8 +119,12 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
     category: "quality-gates",
     tier: "important",
     score,
-    findings,
+    status,
+    summary,
+    details,
+    whyThisMatters: "Explain why this signal improves harness readiness.",
     recommendations,
+    references,
   };
 }
 ```
