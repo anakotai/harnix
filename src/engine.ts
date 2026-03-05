@@ -1,5 +1,6 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { existsSync } from "node:fs";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 import type { CheckResult, RecursiveScanResult } from "./types.js";
@@ -7,8 +8,11 @@ import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
 import type { GitInfo } from "./scanner.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Compiled location is dist/src/engine.js, so go up two levels to reach the repo root
-const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
+// From src/engine.ts: package.json is one level up
+// From dist/src/engine.js: package.json is two levels up
+const HARNIX_ROOT = existsSync(path.join(__dirname, "..", "package.json"))
+  ? path.resolve(__dirname, "..")
+  : path.resolve(__dirname, "..", "..");
 const CHECKS_DIR = path.join(HARNIX_ROOT, "checks");
 const DIST_CHECKS_DIR = path.join(HARNIX_ROOT, "dist", "checks");
 
@@ -76,14 +80,22 @@ async function discoverChecks(): Promise<DiscoveredCheck[]> {
 }
 
 async function loadCheckFunction(dirName: string): Promise<(ctx: import("./types.js").ScanContext) => Promise<CheckResult>> {
-  const checkPath = path.join(DIST_CHECKS_DIR, dirName, "check.js");
+  const compiledPath = path.join(DIST_CHECKS_DIR, dirName, "check.js");
+  const sourcePath = path.join(CHECKS_DIR, dirName, "check.ts");
 
+  let checkPath: string;
   try {
-    await fs.access(checkPath);
+    await fs.access(compiledPath);
+    checkPath = compiledPath;
   } catch {
-    throw new Error(
-      `Compiled check not found for "${dirName}". Run "npm run build" first.`
-    );
+    try {
+      await fs.access(sourcePath);
+      checkPath = sourcePath;
+    } catch {
+      throw new Error(
+        `Check not found for "${dirName}". Run "npm run build" first.`
+      );
+    }
   }
 
   const module = await import(pathToFileURL(checkPath).href) as { default?: unknown };

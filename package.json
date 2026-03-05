@@ -8,14 +8,19 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "scan": "node bin/harnix.js scan ."
+    "scan": "node bin/harnix.js scan .",
+    "test": "vitest run"
   },
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "dependencies": {
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

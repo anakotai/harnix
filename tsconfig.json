@@ -11,6 +11,6 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "checks/**/*.ts"],
+  "include": ["src/**/*.ts", "checks/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
