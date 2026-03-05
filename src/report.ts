@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { CheckResult } from "./types.js";
 import { SCORE_BANDS } from "./types.js";
+import { tierWeight } from "./engine.js";
 
 export function overallBand(scorePercent: number): string {
   if (scorePercent >= SCORE_BANDS.excellent.min) {
@@ -78,19 +79,22 @@ interface CategoryEntry {
 }
 
 function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
-  const categories = new Map<string, { category: string; totalScore: number; count: number; pass: number; partial: number; fail: number }>();
+  const categories = new Map<string, { category: string; weightedSum: number; totalWeight: number; count: number; pass: number; partial: number; fail: number }>();
 
   for (const check of checks) {
     const existing = categories.get(check.category) ?? {
       category: check.category,
-      totalScore: 0,
+      weightedSum: 0,
+      totalWeight: 0,
       count: 0,
       pass: 0,
       partial: 0,
       fail: 0
     };
 
-    existing.totalScore += check.score;
+    const w = tierWeight(check.tier);
+    existing.weightedSum += w * check.score;
+    existing.totalWeight += w;
     existing.count += 1;
     existing[check.status] += 1;
     categories.set(check.category, existing);
@@ -100,7 +104,7 @@ function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
     .map((entry) => ({
       category: entry.category,
       count: entry.count,
-      averageScore: entry.count > 0 ? entry.totalScore / entry.count : 0,
+      averageScore: entry.totalWeight > 0 ? entry.weightedSum / entry.totalWeight : 0,
       pass: entry.pass,
       partial: entry.partial,
       fail: entry.fail

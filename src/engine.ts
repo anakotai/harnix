@@ -173,13 +173,13 @@ export interface RecursiveScanEntry {
   error?: string;
 }
 
-const TIER_WEIGHTS: Record<string, number> = {
+export const TIER_WEIGHTS: Record<string, number> = {
   critical: 3,
   important: 2,
   "nice-to-have": 1
 };
 
-function tierWeight(tier: string): number {
+export function tierWeight(tier: string): number {
   return TIER_WEIGHTS[tier] ?? 1;
 }
 
