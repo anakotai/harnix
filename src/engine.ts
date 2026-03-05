@@ -6,6 +6,7 @@ import { parseDocument } from "yaml";
 import type { CheckResult } from "./types.js";
 import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
 import type { GitInfo } from "./scanner.js";
+import { metaSchema, type CheckMeta } from "./schemas/meta.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // From src/engine.ts: package.json is one level up
@@ -15,15 +16,6 @@ const HARNIX_ROOT = existsSync(path.join(__dirname, "..", "package.json"))
   : path.resolve(__dirname, "..", "..");
 const CHECKS_DIR = path.join(HARNIX_ROOT, "checks");
 const DIST_CHECKS_DIR = path.join(HARNIX_ROOT, "dist", "checks");
-
-interface CheckMeta {
-  id: string;
-  name: string;
-  category?: string;
-  tier: string;
-  description?: string;
-  applicableTo: string;
-}
 
 interface DiscoveredCheck {
   dirName: string;
@@ -66,14 +58,18 @@ async function discoverChecks(): Promise<DiscoveredCheck[]> {
 
     const meta = doc.toJS() as Record<string, unknown>;
     if (!meta || typeof meta !== "object") continue;
-    if (!meta.id || !meta.name || !meta.tier || !meta.applicableTo) {
-      console.warn(
-        `Warning: checks/${entry.name}/meta.yaml missing required fields (id, name, tier, applicableTo)`
+
+    const result = metaSchema.safeParse(meta);
+    if (!result.success) {
+      const issues = result.error.issues
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+        .join("; ");
+      throw new Error(
+        `Invalid meta.yaml in checks/${entry.name}/: ${issues}`
       );
-      continue;
     }
 
-    discovered.push({ dirName: entry.name, meta: meta as unknown as CheckMeta });
+    discovered.push({ dirName: entry.name, meta: result.data });
   }
 
   return discovered;
