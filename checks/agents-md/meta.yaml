@@ -1,0 +1,14 @@
+id: agents-md
+name: Agent guidance
+category: agent-readiness
+tier: critical
+description: >-
+  Detects AGENTS.md or CLAUDE.md at the repository root, scores content
+  length and substance, and flags empty or minimal guidance files.
+tags:
+  - agents
+  - guidance
+  - instructions
+  - AGENTS.md
+  - CLAUDE.md
+applicableTo: all

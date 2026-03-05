@@ -1,0 +1,15 @@
+id: source-of-truth
+name: Source of truth
+category: organization
+tier: important
+description: >-
+  Pattern-based single source of truth violation detection across six
+  semantic groups (Legal, Styling, Configuration, Architecture, API Specs,
+  Database Config). Flags when two or more directories or files match the
+  same group.
+tags:
+  - ssot
+  - organization
+  - duplication
+  - consistency
+applicableTo: all

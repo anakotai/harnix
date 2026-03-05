@@ -1,0 +1,15 @@
+id: ci-pipeline
+name: CI pipeline
+category: quality-gates
+tier: important
+description: >-
+  Detects CI/CD configuration markers for GitHub Actions, GitLab CI,
+  CircleCI, Jenkins, Travis CI, and Azure Pipelines. Passes when at least
+  one CI system is configured.
+tags:
+  - ci
+  - cd
+  - pipeline
+  - automation
+  - quality
+applicableTo: software

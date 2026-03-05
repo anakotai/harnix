@@ -1,0 +1,14 @@
+id: agent-skills
+name: Agent skills
+category: agent-readiness
+tier: important
+description: >-
+  Detects skills directories (skills/, .skills/, or directories containing
+  SKILL.md), validates frontmatter and structure against the Agent Skills
+  specification, and flags commented-out code as a security risk.
+tags:
+  - agents
+  - skills
+  - SKILL.md
+  - security
+applicableTo: all

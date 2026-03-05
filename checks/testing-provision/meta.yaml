@@ -1,0 +1,14 @@
+id: testing-provision
+name: Testing provision
+category: quality
+tier: important
+description: >-
+  Detects test files and directories, evaluates test isolation (dedicated
+  test directories), and checks for testing documentation in README.md or
+  standalone test docs.
+tags:
+  - testing
+  - tests
+  - quality
+  - isolation
+applicableTo: software

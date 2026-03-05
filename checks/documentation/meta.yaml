@@ -1,0 +1,14 @@
+id: documentation
+name: Documentation
+category: documentation
+tier: critical
+description: >-
+  Checks for a substantive README.md and supporting documentation
+  directories (docs/, prds/). Scores based on README length, presence of
+  docs directories, and content quality signals.
+tags:
+  - readme
+  - docs
+  - documentation
+  - onboarding
+applicableTo: all

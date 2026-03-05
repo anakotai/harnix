@@ -1,0 +1,14 @@
+id: repo-structure
+name: Repo structure
+category: infrastructure
+tier: important
+description: >-
+  Detects monorepo and submodule setups (.gitmodules, workspace configs),
+  checks for source code organization (src/, lib/, packages/), evaluates
+  separation of concerns, and flags submodules without workspace config.
+tags:
+  - monorepo
+  - submodules
+  - workspaces
+  - structure
+applicableTo: software
