@@ -1,11 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { CheckResult } from "./types.js";
 import { SCORE_BANDS } from "./types.js";
 
-/**
- * @param {number} scorePercent
- */
-export function overallBand(scorePercent) {
+export function overallBand(scorePercent: number): string {
   if (scorePercent >= SCORE_BANDS.excellent.min) {
     return SCORE_BANDS.excellent.label;
   }
@@ -18,10 +16,7 @@ export function overallBand(scorePercent) {
   return SCORE_BANDS.poor.label;
 }
 
-/**
- * @param {"pass" | "partial" | "fail"} status
- */
-function symbolForStatus(status) {
+function symbolForStatus(status: "pass" | "partial" | "fail"): string {
   if (status === "pass") {
     return "✓";
   }
@@ -31,41 +26,26 @@ function symbolForStatus(status) {
   return "✗";
 }
 
-/**
- * @param {number} score
- */
-function formatPercent(score) {
+function formatPercent(score: number): string {
   return `${Math.round(score * 100)}%`;
 }
 
-/**
- * @param {"submodule" | "workspace"} kind
- */
-function formatRecursiveKind(kind) {
+function formatRecursiveKind(kind: "submodule" | "workspace"): string {
   return kind === "submodule" ? "Submodule" : "Workspace";
 }
 
-/**
- * @param {string} value
- */
-function escapeMarkdownCell(value) {
+function escapeMarkdownCell(value: string): string {
   return value.replaceAll("|", "\\|");
 }
 
-/**
- * @param {string} category
- */
-function formatCategoryLabel(category) {
+function formatCategoryLabel(category: string): string {
   return category
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
 
-/**
- * @param {string} value
- */
-function escapeHtml(value) {
+function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -74,17 +54,11 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-/**
- * @param {number} value
- */
-function padTwo(value) {
+function padTwo(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-/**
- * @param {Date} [now]
- */
-export function reportTimestamp(now = new Date()) {
+export function reportTimestamp(now = new Date()): string {
   const year = now.getFullYear();
   const month = padTwo(now.getMonth() + 1);
   const day = padTwo(now.getDate());
@@ -94,12 +68,17 @@ export function reportTimestamp(now = new Date()) {
   return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 }
 
-/**
- * @param {Array<{category: string, score: number, status: "pass" | "partial" | "fail"}>} checks
- */
-function categoryBreakdown(checks) {
-  /** @type {Map<string, {category: string, totalScore: number, count: number, pass: number, partial: number, fail: number}>} */
-  const categories = new Map();
+interface CategoryEntry {
+  category: string;
+  count: number;
+  averageScore: number;
+  pass: number;
+  partial: number;
+  fail: number;
+}
+
+function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
+  const categories = new Map<string, { category: string; totalScore: number; count: number; pass: number; partial: number; fail: number }>();
 
   for (const check of checks) {
     const existing = categories.get(check.category) ?? {
@@ -135,10 +114,7 @@ function categoryBreakdown(checks) {
     });
 }
 
-/**
- * @param {Array<{status: "pass" | "partial" | "fail"}>} checks
- */
-function statusCounts(checks) {
+function statusCounts(checks: CheckResult[]): { pass: number; partial: number; fail: number } {
   return checks.reduce(
     (accumulator, check) => {
       accumulator[check.status] += 1;
@@ -148,10 +124,7 @@ function statusCounts(checks) {
   );
 }
 
-/**
- * @param {"critical" | "important" | "nice-to-have"} tier
- */
-function tierPriority(tier) {
+function tierPriority(tier: "critical" | "important" | "nice-to-have"): number {
   if (tier === "critical") {
     return 0;
   }
@@ -161,10 +134,15 @@ function tierPriority(tier) {
   return 2;
 }
 
-/**
- * @param {Array<{id: string, name: string, tier: "critical" | "important" | "nice-to-have", score: number, recommendations: string[]}>} checks
- */
-function topRecommendations(checks) {
+interface RankedRecommendation {
+  id: string;
+  recommendation: string;
+  tier: "critical" | "important" | "nice-to-have";
+  score: number;
+  name: string;
+}
+
+function topRecommendations(checks: CheckResult[]): RankedRecommendation[] {
   const ranked = checks
     .filter((check) => Array.isArray(check.recommendations) && check.recommendations.length > 0)
     .map((check) => ({
@@ -191,12 +169,20 @@ function topRecommendations(checks) {
   return ranked.slice(0, 3);
 }
 
-/**
- * @param {Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>} recursiveScans
- */
-function recursiveBreakdown(recursiveScans) {
+interface RecursiveScanInput {
+  kind: "submodule" | "workspace";
+  path: string;
+  result?: { overallScore?: number; checks?: unknown[] };
+  error?: string;
+}
+
+type RecursiveEntry =
+  | { kind: "submodule" | "workspace"; path: string; error: string }
+  | { kind: "submodule" | "workspace"; path: string; overallScore: number; overallPercent: number; band: string; checks: number };
+
+function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntry[] {
   return recursiveScans
-    .map((scan) => {
+    .map((scan): RecursiveEntry => {
       if (scan.error || !scan.result || typeof scan.result.overallScore !== "number") {
         return {
           kind: scan.kind,
@@ -225,14 +211,17 @@ function recursiveBreakdown(recursiveScans) {
     });
 }
 
-/**
- * @param {string} scannedPath
- * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
- * @param {number} overallScore
- * @param {string} timestamp
- * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
- */
-export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp, options = {}) {
+export interface ReportOptions {
+  recursiveScans?: RecursiveScanInput[];
+}
+
+export function buildMarkdownReport(
+  scannedPath: string,
+  checks: CheckResult[],
+  overallScore: number,
+  timestamp: string,
+  options: ReportOptions = {}
+): string {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
@@ -240,7 +229,7 @@ export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp
   const recommendations = topRecommendations(checks);
   const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
 
-  const lines = [
+  const lines: string[] = [
     "# Harnix Harness Readiness Report",
     "",
     "## Executive Summary",
@@ -322,14 +311,13 @@ export function buildMarkdownReport(scannedPath, checks, overallScore, timestamp
   return lines.join("\n");
 }
 
-/**
- * @param {string} scannedPath
- * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
- * @param {number} overallScore
- * @param {string} timestamp
- * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
- */
-export function buildHtmlReport(scannedPath, checks, overallScore, timestamp, options = {}) {
+export function buildHtmlReport(
+  scannedPath: string,
+  checks: CheckResult[],
+  overallScore: number,
+  timestamp: string,
+  options: ReportOptions = {}
+): string {
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
@@ -807,14 +795,13 @@ ${recommendationsList}
 </html>`;
 }
 
-/**
- * @param {string} scannedPath
- * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[]}>} checks
- * @param {number} overallScore
- * @param {string} [outputDirectory]
- * @param {{recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
- */
-export async function writeReportFiles(scannedPath, checks, overallScore, outputDirectory, options = {}) {
+export async function writeReportFiles(
+  scannedPath: string,
+  checks: CheckResult[],
+  overallScore: number,
+  outputDirectory?: string,
+  options: ReportOptions = {}
+): Promise<{ markdownPath: string; htmlPath: string; timestamp: string }> {
   const timestamp = reportTimestamp();
   const resolvedOutputDirectory = outputDirectory
     ? path.resolve(outputDirectory)
@@ -835,13 +822,12 @@ export async function writeReportFiles(scannedPath, checks, overallScore, output
   return { markdownPath, htmlPath, timestamp };
 }
 
-/**
- * @param {string} targetPath
- * @param {Array<{id: string, name: string, category: string, tier: "critical" | "important" | "nice-to-have", score: number, status: "pass" | "partial" | "fail", summary: string, details: string, recommendations: string[], references: string[], whyThisMatters?: string}>} checks
- * @param {number} overallScore
- * @param {{verbose?: boolean, recursiveScans?: Array<{kind: "submodule" | "workspace", path: string, result?: {overallScore?: number, checks?: unknown[]}, error?: string}>}} [options]
- */
-export function printConsoleReport(targetPath, checks, overallScore, options = {}) {
+export function printConsoleReport(
+  targetPath: string,
+  checks: CheckResult[],
+  overallScore: number,
+  options: { verbose?: boolean; recursiveScans?: RecursiveScanInput[] } = {}
+): void {
   const verbose = options.verbose === true;
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);

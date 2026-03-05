@@ -25,7 +25,7 @@ const CI_MARKERS = [
   "azure-pipelines.yml"
 ];
 
-const ROOT_WORKSPACE_MARKERS = {
+const ROOT_WORKSPACE_MARKERS: Record<string, string> = {
   pnpmWorkspace: "pnpm-workspace.yaml",
   lerna: "lerna.json",
   nx: "nx.json",
@@ -34,16 +34,12 @@ const ROOT_WORKSPACE_MARKERS = {
 
 const IGNORED_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"]);
 
-/**
- * @param {string} rootPath
- */
-export async function listFiles(rootPath) {
-  /** @type {string[]} */
-  const files = [];
+export async function listFiles(rootPath: string): Promise<string[]> {
+  const files: string[] = [];
 
-  async function walk(relativeDir) {
+  async function walk(relativeDir: string): Promise<void> {
     const absoluteDir = path.join(rootPath, relativeDir);
-    let entries;
+    let entries: import("node:fs").Dirent[];
     try {
       entries = await fs.readdir(absoluteDir, { withFileTypes: true });
     } catch (error) {
@@ -71,10 +67,7 @@ export async function listFiles(rootPath) {
   return files.map((filePath) => filePath.replace(/^[.][/\\]/, ""));
 }
 
-/**
- * @param {string[]} files
- */
-export function detectRepoType(files) {
+export function detectRepoType(files: string[]): "software" | "non-software" {
   const markerNames = new Set(SOFTWARE_MARKERS.map((marker) => marker.toLowerCase()));
   const hasDotnetSolution = files.some((filePath) => {
     const fileName = path.posix.basename(filePath.replace(/\\/g, "/")).toLowerCase();
@@ -88,11 +81,26 @@ export function detectRepoType(files) {
   return hasSoftwareMarker || hasDotnetSolution ? "software" : "non-software";
 }
 
-/**
- * @param {string} rootPath
- * @param {string[]} files
- */
-export async function detectGitInfo(rootPath, files) {
+export interface WorkspaceConfig {
+  npmWorkspaces: boolean;
+  pnpmWorkspace: boolean;
+  cargoWorkspace: boolean;
+  lerna: boolean;
+  nx: boolean;
+  turborepo: boolean;
+  detected: string[];
+  [key: string]: boolean | string[];
+}
+
+export interface GitInfo {
+  hasSubmodules: boolean;
+  submodules: string[];
+  hasWorkspaces: boolean;
+  workspaces: string[];
+  workspaceConfig: WorkspaceConfig;
+}
+
+export async function detectGitInfo(rootPath: string, files: string[]): Promise<GitInfo> {
   const normalizedFiles = new Set(
     files.map((filePath) => filePath.replace(/\\/g, "/").toLowerCase())
   );
@@ -137,10 +145,7 @@ export async function detectGitInfo(rootPath, files) {
   };
 }
 
-/**
- * @param {string} rootPath
- */
-async function readSubmodulePaths(rootPath) {
+async function readSubmodulePaths(rootPath: string): Promise<string[]> {
   try {
     const gitmodulesContent = await fs.readFile(path.join(rootPath, ".gitmodules"), "utf8");
     const submodulePaths = Array.from(
@@ -156,29 +161,21 @@ async function readSubmodulePaths(rootPath) {
   }
 }
 
-/**
- * @param {string} rootPath
- * @param {Set<string>} normalizedFiles
- */
-async function readNpmWorkspacePatterns(rootPath, normalizedFiles) {
+async function readNpmWorkspacePatterns(rootPath: string, normalizedFiles: Set<string>): Promise<string[]> {
   if (!normalizedFiles.has("package.json")) {
     return [];
   }
 
   try {
     const packageJson = await fs.readFile(path.join(rootPath, "package.json"), "utf8");
-    const parsed = JSON.parse(packageJson);
+    const parsed = JSON.parse(packageJson) as Record<string, unknown>;
     return extractWorkspacePatterns(parsed?.workspaces);
   } catch {
     return [];
   }
 }
 
-/**
- * @param {string} rootPath
- * @param {Set<string>} normalizedFiles
- */
-async function readPnpmWorkspacePatterns(rootPath, normalizedFiles) {
+async function readPnpmWorkspacePatterns(rootPath: string, normalizedFiles: Set<string>): Promise<string[]> {
   if (!normalizedFiles.has(ROOT_WORKSPACE_MARKERS.pnpmWorkspace)) {
     return [];
   }
@@ -192,23 +189,19 @@ async function readPnpmWorkspacePatterns(rootPath, normalizedFiles) {
     if (parsed.errors.length > 0) {
       return [];
     }
-    const rawValue = parsed.toJS();
+    const rawValue = parsed.toJS() as Record<string, unknown> | null;
     return extractWorkspacePatterns(rawValue?.packages);
   } catch {
     return [];
   }
 }
 
-/**
- * @param {string} rootPath
- * @param {Set<string>} normalizedFiles
- */
-async function readCargoWorkspaceMembers(rootPath, normalizedFiles) {
+async function readCargoWorkspaceMembers(rootPath: string, normalizedFiles: Set<string>): Promise<string[]> {
   if (!normalizedFiles.has("cargo.toml")) {
     return [];
   }
 
-  let cargoToml;
+  let cargoToml: string | undefined;
   for (const candidate of ["Cargo.toml", "cargo.toml"]) {
     try {
       cargoToml = await fs.readFile(path.join(rootPath, candidate), "utf8");
@@ -243,29 +236,21 @@ async function readCargoWorkspaceMembers(rootPath, normalizedFiles) {
   ).filter((entry) => entry.length > 0);
 }
 
-/**
- * @param {string} rootPath
- * @param {Set<string>} normalizedFiles
- */
-async function readLernaWorkspacePatterns(rootPath, normalizedFiles) {
+async function readLernaWorkspacePatterns(rootPath: string, normalizedFiles: Set<string>): Promise<string[]> {
   if (!normalizedFiles.has(ROOT_WORKSPACE_MARKERS.lerna)) {
     return [];
   }
 
   try {
     const lernaJson = await fs.readFile(path.join(rootPath, ROOT_WORKSPACE_MARKERS.lerna), "utf8");
-    const parsed = JSON.parse(lernaJson);
+    const parsed = JSON.parse(lernaJson) as Record<string, unknown>;
     return extractWorkspacePatterns(parsed?.packages);
   } catch {
     return [];
   }
 }
 
-/**
- * @param {string[]} files
- * @param {Set<string>} normalizedFiles
- */
-function readNxWorkspaceProjects(files, normalizedFiles) {
+function readNxWorkspaceProjects(files: string[], normalizedFiles: Set<string>): string[] {
   if (!normalizedFiles.has(ROOT_WORKSPACE_MARKERS.nx)) {
     return [];
   }
@@ -277,14 +262,10 @@ function readNxWorkspaceProjects(files, normalizedFiles) {
   return Array.from(new Set(projectDirs)).filter((entry) => entry.length > 0);
 }
 
-/**
- * @param {unknown} value
- */
-function extractWorkspacePatterns(value) {
-  /** @type {string[]} */
-  const patterns = [];
+function extractWorkspacePatterns(value: unknown): string[] {
+  const patterns: string[] = [];
 
-  const collect = (candidate) => {
+  const collect = (candidate: unknown): void => {
     if (typeof candidate === "string") {
       const normalized = normalizeRelativePath(candidate);
       if (normalized.length > 0 && !normalized.startsWith("!")) {
@@ -294,12 +275,12 @@ function extractWorkspacePatterns(value) {
     }
 
     if (Array.isArray(candidate)) {
-      candidate.forEach((entry) => collect(entry));
+      candidate.forEach((entry: unknown) => collect(entry));
       return;
     }
 
     if (candidate && typeof candidate === "object") {
-      for (const nested of Object.values(candidate)) {
+      for (const nested of Object.values(candidate as Record<string, unknown>)) {
         collect(nested);
       }
     }
@@ -309,17 +290,11 @@ function extractWorkspacePatterns(value) {
   return Array.from(new Set(patterns));
 }
 
-/**
- * @param {string} value
- */
-function normalizeRelativePath(value) {
+function normalizeRelativePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "").trim();
 }
 
-/**
- * @param {string} pattern
- */
-function globPatternToRegex(pattern) {
+function globPatternToRegex(pattern: string): RegExp {
   let expression = "^";
 
   for (let index = 0; index < pattern.length; index += 1) {
@@ -342,7 +317,7 @@ function globPatternToRegex(pattern) {
       continue;
     }
 
-    if ("+.^$()|[]{}\\".includes(char)) {
+    if ("+.^$()|[]{}\\".includes(char!)) {
       expression += `\\${char}`;
       continue;
     }
@@ -354,11 +329,8 @@ function globPatternToRegex(pattern) {
   return new RegExp(expression);
 }
 
-/**
- * @param {string[]} files
- */
-function deriveDirectoryPaths(files) {
-  const directories = new Set();
+function deriveDirectoryPaths(files: string[]): string[] {
+  const directories = new Set<string>();
 
   for (const filePath of files) {
     const normalized = normalizeRelativePath(filePath);
@@ -378,12 +350,8 @@ function deriveDirectoryPaths(files) {
   return Array.from(directories);
 }
 
-/**
- * @param {string[]} directories
- * @param {string[]} patterns
- */
-function resolveGlobPatterns(directories, patterns) {
-  const matches = new Set();
+function resolveGlobPatterns(directories: string[], patterns: string[]): string[] {
+  const matches = new Set<string>();
   const regexes = patterns.map((pattern) => ({
     pattern,
     regex: globPatternToRegex(pattern)
@@ -404,11 +372,7 @@ function resolveGlobPatterns(directories, patterns) {
   return Array.from(matches);
 }
 
-/**
- * @param {string} rootPath
- * @param {string} relativePath
- */
-async function isDirectory(rootPath, relativePath) {
+async function isDirectory(rootPath: string, relativePath: string): Promise<boolean> {
   if (!relativePath || relativePath === ".") {
     return false;
   }
@@ -421,14 +385,17 @@ async function isDirectory(rootPath, relativePath) {
   }
 }
 
-/**
- * @param {string} rootPath
- * @param {string[]} files
- * @param {{npmWorkspacePatterns: string[], pnpmWorkspacePatterns: string[], cargoWorkspaceMembers: string[], lernaWorkspacePatterns: string[], nxWorkspaceProjects: string[]}} inputs
- */
-async function resolveWorkspacePaths(rootPath, files, inputs) {
+interface WorkspaceInputs {
+  npmWorkspacePatterns: string[];
+  pnpmWorkspacePatterns: string[];
+  cargoWorkspaceMembers: string[];
+  lernaWorkspacePatterns: string[];
+  nxWorkspaceProjects: string[];
+}
+
+async function resolveWorkspacePaths(rootPath: string, files: string[], inputs: WorkspaceInputs): Promise<string[]> {
   const directoryPaths = deriveDirectoryPaths(files);
-  const workspaceCandidates = new Set();
+  const workspaceCandidates = new Set<string>();
 
   const patternMatches = resolveGlobPatterns(directoryPaths, [
     ...inputs.npmWorkspacePatterns,
@@ -448,7 +415,7 @@ async function resolveWorkspacePaths(rootPath, files, inputs) {
     workspaceCandidates.add(normalizeRelativePath(candidate));
   }
 
-  const resolved = [];
+  const resolved: string[] = [];
   for (const candidate of workspaceCandidates) {
     if (await isDirectory(rootPath, candidate)) {
       resolved.push(candidate);
@@ -458,10 +425,7 @@ async function resolveWorkspacePaths(rootPath, files, inputs) {
   return Array.from(new Set(resolved));
 }
 
-/**
- * @param {string[]} files
- */
-export function findCiSystem(files) {
+export function findCiSystem(files: string[]): string | null {
   const filesLower = files.map((filePath) => filePath.toLowerCase());
   const fileSetLower = new Set(filesLower);
 

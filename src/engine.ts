@@ -2,33 +2,50 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
+import type { CheckResult, RecursiveScanResult } from "./types.js";
 import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
+import type { GitInfo } from "./scanner.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HARNIX_ROOT = path.resolve(__dirname, "..");
+// Compiled location is dist/src/engine.js, so go up two levels to reach the repo root
+const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
 const CHECKS_DIR = path.join(HARNIX_ROOT, "checks");
 const DIST_CHECKS_DIR = path.join(HARNIX_ROOT, "dist", "checks");
+
+interface CheckMeta {
+  id: string;
+  name: string;
+  category?: string;
+  tier: string;
+  description?: string;
+  applicableTo: string;
+}
+
+interface DiscoveredCheck {
+  dirName: string;
+  meta: CheckMeta;
+}
 
 /**
  * Discovers all available checks by scanning checks/{id}/meta.yaml.
  * No hardcoded check list — adding a new check only requires
  * creating a new directory with meta.yaml + check.ts under checks/.
  */
-async function discoverChecks() {
-  let entries;
+async function discoverChecks(): Promise<DiscoveredCheck[]> {
+  let entries: import("node:fs").Dirent[];
   try {
     entries = await fs.readdir(CHECKS_DIR, { withFileTypes: true });
   } catch {
     throw new Error(`Checks directory not found: ${CHECKS_DIR}`);
   }
 
-  const discovered = [];
+  const discovered: DiscoveredCheck[] = [];
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
 
     const metaPath = path.join(CHECKS_DIR, entry.name, "meta.yaml");
-    let content;
+    let content: string;
     try {
       content = await fs.readFile(metaPath, "utf8");
     } catch {
@@ -43,7 +60,7 @@ async function discoverChecks() {
       continue;
     }
 
-    const meta = doc.toJS();
+    const meta = doc.toJS() as Record<string, unknown>;
     if (!meta || typeof meta !== "object") continue;
     if (!meta.id || !meta.name || !meta.tier || !meta.applicableTo) {
       console.warn(
@@ -52,17 +69,13 @@ async function discoverChecks() {
       continue;
     }
 
-    discovered.push({ dirName: entry.name, meta });
+    discovered.push({ dirName: entry.name, meta: meta as unknown as CheckMeta });
   }
 
   return discovered;
 }
 
-/**
- * Loads a check function from the compiled dist/ directory.
- * @param {string} dirName
- */
-async function loadCheckFunction(dirName) {
+async function loadCheckFunction(dirName: string): Promise<(ctx: import("./types.js").ScanContext) => Promise<CheckResult>> {
   const checkPath = path.join(DIST_CHECKS_DIR, dirName, "check.js");
 
   try {
@@ -73,23 +86,29 @@ async function loadCheckFunction(dirName) {
     );
   }
 
-  const module = await import(pathToFileURL(checkPath).href);
+  const module = await import(pathToFileURL(checkPath).href) as { default?: unknown };
   if (typeof module.default !== "function") {
     throw new Error(
       `checks/${dirName}/check.ts does not export a default function`
     );
   }
 
-  return module.default;
+  return module.default as (ctx: import("./types.js").ScanContext) => Promise<CheckResult>;
 }
 
-/**
- * Runs dynamically discovered checks against a ScanContext.
- *
- * @param {{rootPath: string, files: string[], repoType: "software" | "non-software", gitInfo: object}} ctx
- * @param {{skipIds?: string[], onlyIds?: string[]}} [options]
- */
-async function runDiscoveredChecks(ctx, options = {}) {
+interface ScanContext {
+  rootPath: string;
+  files: string[];
+  repoType: "software" | "non-software";
+  gitInfo: GitInfo;
+}
+
+interface RunOptions {
+  skipIds?: string[];
+  onlyIds?: string[];
+}
+
+async function runDiscoveredChecks(ctx: ScanContext, options: RunOptions = {}): Promise<CheckResult[]> {
   const discovered = await discoverChecks();
   const skipIds = new Set(options.skipIds ?? []);
   const onlyIds = new Set(options.onlyIds ?? []);
@@ -103,7 +122,7 @@ async function runDiscoveredChecks(ctx, options = {}) {
     return meta.applicableTo === ctx.repoType;
   });
 
-  const checkPromises = applicable.map(async ({ dirName, meta }) => {
+  const checkPromises = applicable.map(async ({ dirName, meta }): Promise<CheckResult> => {
     try {
       const checkFn = await loadCheckFunction(dirName);
       return await checkFn(ctx);
@@ -114,7 +133,7 @@ async function runDiscoveredChecks(ctx, options = {}) {
         id: meta.id,
         name: meta.name,
         category: meta.category ?? "unknown",
-        tier: meta.tier,
+        tier: (meta.tier as CheckResult["tier"]),
         score: 0,
         status: "fail",
         summary: `Check failed to run: ${message}`,
@@ -129,27 +148,42 @@ async function runDiscoveredChecks(ctx, options = {}) {
   return Promise.all(checkPromises);
 }
 
-/**
- * @param {string} targetPath
- * @param {{
- *   skipIds?: string[],
- *   onlyIds?: string[],
- *   repoType?: "software" | "non-software",
- *   recursive?: boolean,
- *   _visitedPaths?: Set<string>
- * }} [options]
- */
-export async function scanRepository(targetPath, options = {}) {
+export interface ScanOptions {
+  skipIds?: string[];
+  onlyIds?: string[];
+  repoType?: "software" | "non-software";
+  recursive?: boolean;
+  _visitedPaths?: Set<string>;
+}
+
+export interface ScanResult {
+  absolutePath: string;
+  repoType: "software" | "non-software";
+  gitInfo: GitInfo;
+  overallScore: number;
+  checks: CheckResult[];
+  recursiveScans: RecursiveScanEntry[];
+}
+
+export interface RecursiveScanEntry {
+  kind: "submodule" | "workspace";
+  path: string;
+  absolutePath: string;
+  result?: ScanResult;
+  error?: string;
+}
+
+export async function scanRepository(targetPath: string, options: ScanOptions = {}): Promise<ScanResult> {
   const absolutePath = path.resolve(targetPath);
   const recursive = options.recursive !== false;
-  const visitedPaths = options._visitedPaths ?? new Set();
+  const visitedPaths = options._visitedPaths ?? new Set<string>();
   visitedPaths.add(absolutePath);
 
   const files = await listFiles(absolutePath);
   const repoType = options.repoType ?? detectRepoType(files);
   const gitInfo = await detectGitInfo(absolutePath, files);
 
-  const ctx = { rootPath: absolutePath, files, repoType, gitInfo };
+  const ctx: ScanContext = { rootPath: absolutePath, files, repoType, gitInfo };
   const checks = await runDiscoveredChecks(ctx, {
     skipIds: options.skipIds,
     onlyIds: options.onlyIds
@@ -178,29 +212,29 @@ export async function scanRepository(targetPath, options = {}) {
   };
 }
 
-/**
- * @param {string} rootPath
- * @param {{submodules?: string[], workspaces?: string[]}} gitInfo
- * @param {{
- *   skipIds?: string[],
- *   onlyIds?: string[],
- *   repoType?: "software" | "non-software",
- *   recursive: boolean,
- *   visitedPaths: Set<string>
- * }} options
- */
-async function runRecursiveScans(rootPath, gitInfo, options) {
+interface RecursiveScanOptions {
+  skipIds?: string[];
+  onlyIds?: string[];
+  repoType?: "software" | "non-software";
+  recursive: boolean;
+  visitedPaths: Set<string>;
+}
+
+async function runRecursiveScans(
+  rootPath: string,
+  gitInfo: GitInfo,
+  options: RecursiveScanOptions
+): Promise<RecursiveScanEntry[]> {
   const submodulePaths = (gitInfo.submodules ?? []).map((entry) => ({
-    kind: "submodule",
+    kind: "submodule" as const,
     relativePath: entry
   }));
   const workspacePaths = (gitInfo.workspaces ?? []).map((entry) => ({
-    kind: "workspace",
+    kind: "workspace" as const,
     relativePath: entry
   }));
   const candidates = [...submodulePaths, ...workspacePaths];
-  /** @type {Array<{kind: "submodule" | "workspace", path: string, absolutePath: string, result?: object, error?: string}>} */
-  const recursiveScans = [];
+  const recursiveScans: RecursiveScanEntry[] = [];
 
   for (const candidate of candidates) {
     const normalizedPath = normalizeRelativePath(candidate.relativePath);
@@ -247,17 +281,11 @@ async function runRecursiveScans(rootPath, gitInfo, options) {
   return recursiveScans;
 }
 
-/**
- * @param {string} value
- */
-function normalizeRelativePath(value) {
+function normalizeRelativePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "").trim();
 }
 
-/**
- * @param {string} absolutePath
- */
-async function safeStatDirectory(absolutePath) {
+async function safeStatDirectory(absolutePath: string): Promise<import("node:fs").Stats | null> {
   try {
     const stats = await fs.stat(absolutePath);
     return stats.isDirectory() ? stats : null;

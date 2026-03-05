@@ -7,7 +7,7 @@ export interface ScanContext {
     submodules: string[];
     hasWorkspaces: boolean;
     workspaces: string[];
-    workspaceConfig: Record<string, boolean>;
+    workspaceConfig: Record<string, boolean | string[]>;
   };
 }
 

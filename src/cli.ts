@@ -6,11 +6,13 @@ import { printConsoleReport, writeReportFiles } from "./report.js";
 
 const VALID_REPO_TYPES = new Set(["software", "non-software"]);
 
-/**
- * @typedef {{outputPath?: string, skipIds?: string[], repoType?: "software" | "non-software"}} ScanConfig
- */
+interface ScanConfig {
+  outputPath?: string;
+  skipIds?: string[];
+  repoType?: "software" | "non-software";
+}
 
-function printHelp() {
+function printHelp(): void {
   console.log("Usage: harnix scan [path]");
   console.log("");
   console.log("Commands:");
@@ -24,11 +26,8 @@ function printHelp() {
   console.log("  --type <type>    Override repo type (software | non-software)");
 }
 
-/**
- * @param {string} targetPath
- */
-async function ensureDirectory(targetPath) {
-  let stats;
+async function ensureDirectory(targetPath: string): Promise<void> {
+  let stats: import("node:fs").Stats;
   try {
     stats = await fs.stat(targetPath);
   } catch (error) {
@@ -42,12 +41,9 @@ async function ensureDirectory(targetPath) {
   }
 }
 
-/**
- * @param {string} scanRootPath
- */
-async function loadScanConfig(scanRootPath) {
+async function loadScanConfig(scanRootPath: string): Promise<ScanConfig> {
   const configPath = path.join(scanRootPath, ".harnix.yaml");
-  let configContent;
+  let configContent: string;
 
   try {
     configContent = await fs.readFile(configPath, "utf8");
@@ -63,13 +59,8 @@ async function loadScanConfig(scanRootPath) {
   return parseScanConfig(configContent, configPath);
 }
 
-/**
- * @param {string} configContent
- * @param {string} configPath
- * @returns {ScanConfig}
- */
-function parseScanConfig(configContent, configPath) {
-  let parsedDocument;
+function parseScanConfig(configContent: string, configPath: string): ScanConfig {
+  let parsedDocument: ReturnType<typeof parseDocument>;
   try {
     parsedDocument = parseDocument(configContent);
   } catch (error) {
@@ -83,7 +74,7 @@ function parseScanConfig(configContent, configPath) {
     throw new Error(`Invalid .harnix.yaml at ${configPath}: ${message}`);
   }
 
-  const rawConfig = parsedDocument.toJS();
+  const rawConfig = parsedDocument.toJS() as unknown;
   if (rawConfig == null) {
     return {};
   }
@@ -92,54 +83,50 @@ function parseScanConfig(configContent, configPath) {
     throw new Error(`Invalid .harnix.yaml at ${configPath}: top-level value must be a mapping`);
   }
 
-  /** @type {ScanConfig} */
-  const normalizedConfig = {};
+  const config = rawConfig as Record<string, unknown>;
+  const normalizedConfig: ScanConfig = {};
 
-  if ("output" in rawConfig) {
-    const { output } = rawConfig;
+  if ("output" in config) {
+    const { output } = config;
     if (typeof output !== "string" || output.trim().length === 0) {
       throw new Error(`Invalid .harnix.yaml at ${configPath}: output must be a non-empty string`);
     }
     normalizedConfig.outputPath = output.trim();
   }
 
-  if ("skip" in rawConfig) {
-    const { skip } = rawConfig;
+  if ("skip" in config) {
+    const { skip } = config;
     if (!Array.isArray(skip)) {
       throw new Error(`Invalid .harnix.yaml at ${configPath}: skip must be an array of check IDs`);
     }
 
-    const skipIds = skip.map((item) => {
-      if (typeof item !== "string" || item.trim().length === 0) {
+    const skipIds = skip.map((item: unknown) => {
+      if (typeof item !== "string" || (item as string).trim().length === 0) {
         throw new Error(
           `Invalid .harnix.yaml at ${configPath}: skip entries must be non-empty strings`
         );
       }
-      return item.trim();
+      return (item as string).trim();
     });
 
     normalizedConfig.skipIds = dedupeIds(skipIds);
   }
 
-  if ("type" in rawConfig) {
-    const { type } = rawConfig;
+  if ("type" in config) {
+    const { type } = config;
     if (typeof type !== "string" || !VALID_REPO_TYPES.has(type)) {
       throw new Error(
-        `Invalid .harnix.yaml at ${configPath}: type must be \"software\" or \"non-software\"`
+        `Invalid .harnix.yaml at ${configPath}: type must be "software" or "non-software"`
       );
     }
 
-    normalizedConfig.repoType = type;
+    normalizedConfig.repoType = type as "software" | "non-software";
   }
 
   return normalizedConfig;
 }
 
-/**
- * @param {string} optionName
- * @param {string} rawValue
- */
-function parseIdList(optionName, rawValue) {
+function parseIdList(optionName: string, rawValue: string): string[] {
   if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
     throw new Error(`Missing value for ${optionName}`);
   }
@@ -156,18 +143,11 @@ function parseIdList(optionName, rawValue) {
   return ids;
 }
 
-/**
- * @param {string[]} ids
- */
-function dedupeIds(ids) {
+function dedupeIds(ids: string[]): string[] {
   return Array.from(new Set(ids));
 }
 
-/**
- * @param {string} optionName
- * @param {string} rawValue
- */
-function parseRepoType(optionName, rawValue) {
+function parseRepoType(optionName: string, rawValue: string | undefined): "software" | "non-software" {
   if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
     throw new Error(`Missing value for ${optionName}`);
   }
@@ -177,23 +157,26 @@ function parseRepoType(optionName, rawValue) {
     throw new Error(`Invalid value for ${optionName}: ${normalized}`);
   }
 
-  return normalized;
+  return normalized as "software" | "non-software";
 }
 
-/**
- * @param {string[]} args
- */
-function parseScanArgs(args) {
+interface ParsedScanArgs {
+  targetPath: string;
+  outputPath?: string;
+  repoType?: "software" | "non-software";
+  verbose: boolean;
+  skipIds: string[];
+  onlyIds: string[];
+}
+
+function parseScanArgs(args: string[]): ParsedScanArgs {
   let targetPath = ".";
   let hasTargetPath = false;
-  let outputPath;
-  /** @type {"software" | "non-software" | undefined} */
-  let repoType;
+  let outputPath: string | undefined;
+  let repoType: "software" | "non-software" | undefined;
   let verbose = false;
-  /** @type {string[]} */
-  const skipIds = [];
-  /** @type {string[]} */
-  const onlyIds = [];
+  const skipIds: string[] = [];
+  const onlyIds: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -213,7 +196,7 @@ function parseScanArgs(args) {
       continue;
     }
 
-    if (argument.startsWith("--output=")) {
+    if (argument?.startsWith("--output=")) {
       outputPath = argument.slice("--output=".length);
       if (!outputPath) {
         throw new Error("Missing value for --output");
@@ -231,7 +214,7 @@ function parseScanArgs(args) {
       continue;
     }
 
-    if (argument.startsWith("--skip=")) {
+    if (argument?.startsWith("--skip=")) {
       const value = argument.slice("--skip=".length);
       skipIds.push(...parseIdList("--skip", value));
       continue;
@@ -247,7 +230,7 @@ function parseScanArgs(args) {
       continue;
     }
 
-    if (argument.startsWith("--only=")) {
+    if (argument?.startsWith("--only=")) {
       const value = argument.slice("--only=".length);
       onlyIds.push(...parseIdList("--only", value));
       continue;
@@ -260,13 +243,13 @@ function parseScanArgs(args) {
       continue;
     }
 
-    if (argument.startsWith("--type=")) {
+    if (argument?.startsWith("--type=")) {
       const value = argument.slice("--type=".length);
       repoType = parseRepoType("--type", value);
       continue;
     }
 
-    if (argument.startsWith("-")) {
+    if (argument?.startsWith("-")) {
       throw new Error(`Unknown option: ${argument}`);
     }
 
@@ -274,7 +257,7 @@ function parseScanArgs(args) {
       throw new Error(`Unexpected argument: ${argument}`);
     }
 
-    targetPath = argument;
+    targetPath = argument!;
     hasTargetPath = true;
   }
 
@@ -295,10 +278,7 @@ function parseScanArgs(args) {
   };
 }
 
-/**
- * @param {string[]} args
- */
-export async function runCli(args) {
+export async function runCli(args: string[]): Promise<void> {
   const [command, ...commandArgs] = args;
 
   if (!command || command === "--help" || command === "-h") {
@@ -348,6 +328,4 @@ export async function runCli(args) {
   console.log("");
   console.log(`Reports written: ${reports.markdownPath}`);
   console.log(`                 ${reports.htmlPath}`);
-
-  return result;
 }
