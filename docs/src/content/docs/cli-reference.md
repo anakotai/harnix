@@ -65,8 +65,33 @@ harnix scan . --type software
 harnix scan . --type non-software
 ```
 
+## Exit codes
+
+Harnix uses the following exit codes to indicate scan outcomes:
+
+- `0` — scan completed successfully, regardless of scores
+- `1` — an error occurred (invalid arguments, missing directory, malformed config file)
+
+The exit code does not reflect the scan score. A repository scoring `0%` still exits with code `0` because the scan itself succeeded. This design makes Harnix safe to use in CI pipelines where you want to capture results without failing the build on low scores.
+
 ## Help
+
+Display the top-level help text with available commands:
 
 ```bash
 harnix --help
+```
+
+Display scan-specific help with all flags and arguments:
+
+```bash
+harnix scan --help
+```
+
+## Version
+
+Print the installed Harnix version:
+
+```bash
+harnix --version
 ```

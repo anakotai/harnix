@@ -41,9 +41,29 @@ The overall percentage maps to one of these labels:
 - `51` to `75`: Good
 - `76` to `100`: Excellent
 
+## Tier weighting
+
+Each check has an assigned tier that influences its contribution to the overall score:
+
+| Tier | Weight | Description |
+|------|--------|-------------|
+| `critical` | 3 | Essential signals that must be present for reliable agent and human usage |
+| `important` | 2 | Significant signals that improve readiness but are not blockers |
+| `nice-to-have` | 1 | Supplementary signals that indicate mature repository practices |
+
+The overall score is computed as a weighted average:
+
+```text
+overall = sum(check_score × tier_weight) / sum(tier_weight)
+```
+
+This means critical checks have three times the influence of nice-to-have checks on the final score.
+
 ## Recommendation ranking
 
 Top recommendations prioritize:
 
 1. Check tier (`critical`, then `important`, then `nice-to-have`)
 2. Lower score within the same tier
+
+This ordering ensures the most impactful improvements are surfaced first in the console output and reports.

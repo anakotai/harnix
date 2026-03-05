@@ -28,13 +28,14 @@ export default defineConfig({
 					label: 'Reference',
 					items: [
 						{ slug: 'cli-reference' },
+						{ slug: 'configuration' },
 						{ slug: 'scoring-methodology' },
 						{ slug: 'check-catalog' }
 					]
 				},
 				{
 					label: 'Community',
-					items: [{ slug: 'contributing' }]
+					items: [{ slug: 'contributing' }, { slug: 'faq' }]
 				}
 			]
 		})
