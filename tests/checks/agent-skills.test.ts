@@ -49,6 +49,40 @@ describe("agent-skills check", () => {
     expect(result.status).toBe("fail");
   });
 
+  it("ignores SKILL.md outside supported skill roots", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
+    try {
+      await fs.mkdir(path.join(tmpDir, "custom", "my-skill"), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, "custom", "my-skill", "SKILL.md"),
+        "---\nname: custom-skill\ndescription: test\n---\n\nBody",
+      );
+      const ctx = makeCtx(tmpDir, ["custom/my-skill/SKILL.md"]);
+      const result = await agentSkillsCheck(ctx);
+      expect(result.score).toBe(0);
+      expect(result.status).toBe("fail");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects skills under .codex/skills", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
+    try {
+      await fs.mkdir(path.join(tmpDir, ".codex", "skills", "my-skill"), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, ".codex", "skills", "my-skill", "SKILL.md"),
+        "---\nname: codex-skill\ndescription: test\n---\n\nBody",
+      );
+      const ctx = makeCtx(tmpDir, [".codex/skills/my-skill/SKILL.md"]);
+      const result = await agentSkillsCheck(ctx);
+      expect(result.score).toBe(1);
+      expect(result.status).toBe("pass");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("returns low score for skill missing frontmatter", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
     try {

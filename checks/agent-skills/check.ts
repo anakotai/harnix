@@ -5,7 +5,14 @@ import type { ScanContext, CheckResult } from '../../src/types.js';
 const WHY_THIS_MATTERS =
   'Well-structured agent skills enable predictable autonomous workflows. Skills directories with valid frontmatter and no commented-out code reduce security risk and improve agent reliability.';
 
-const SKILL_DIR_NAMES = ['skills', '.skills'];
+const SKILL_ROOT_DIRS = [
+  'skills',
+  '.skills',
+  '.claude/skills',
+  '.codex/skills',
+  '.agent/skills',
+  '.github/skills',
+];
 const VALID_OPTIONAL_DIRS = new Set(['scripts', 'references', 'assets']);
 const COMMENTED_CODE_PATTERNS = [
   /\/\/\s*(import|export|const|let|var|function|class|return|if|for|while)\b/,
@@ -35,44 +42,23 @@ async function findSkillDirs(
   const skillGroups: { dirName: string; skillPaths: string[] }[] = [];
   const normalizedFiles = files.map((f) => f.replace(/\\/g, '/'));
 
-  // Check standard skill directories
-  for (const dirName of SKILL_DIR_NAMES) {
+  // Check supported skill root directories only
+  for (const dirName of SKILL_ROOT_DIRS) {
     const prefix = `${dirName}/`;
     const matchingFiles = normalizedFiles.filter((f) => f.startsWith(prefix));
     if (matchingFiles.length > 0) {
-      // Find subdirectories that contain SKILL.md
+      // Find immediate skill subdirectories beneath each supported root
       const subdirs = new Set<string>();
       for (const f of matchingFiles) {
         const parts = f.slice(prefix.length).split('/');
-        if (parts.length >= 2) {
+        if (parts.length >= 2 && parts[0].length > 0) {
           subdirs.add(parts[0]);
         }
       }
-      skillGroups.push({
-        dirName,
-        skillPaths: Array.from(subdirs).map((s) => `${dirName}/${s}`),
-      });
-    }
-  }
-
-  // Check for directories containing SKILL.md anywhere
-  const skillMdFiles = normalizedFiles.filter((f) =>
-    f.endsWith('/SKILL.md'),
-  );
-  for (const skillMdFile of skillMdFiles) {
-    const skillDir = path.dirname(skillMdFile);
-    const parentDir = path.dirname(skillDir);
-    const alreadyCovered = skillGroups.some((g) =>
-      g.skillPaths.includes(skillDir),
-    );
-    if (!alreadyCovered && parentDir !== '.') {
-      const existing = skillGroups.find((g) => g.dirName === parentDir);
-      if (existing) {
-        existing.skillPaths.push(skillDir);
-      } else {
+      if (subdirs.size > 0) {
         skillGroups.push({
-          dirName: parentDir,
-          skillPaths: [skillDir],
+          dirName,
+          skillPaths: Array.from(subdirs).map((s) => `${dirName}/${s}`),
         });
       }
     }
@@ -159,6 +145,7 @@ async function validateSkill(
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   const { rootPath, files } = ctx;
   const skillGroups = await findSkillDirs(files);
+  const supportedSkillRoots = SKILL_ROOT_DIRS.map((dirName) => `${dirName}/`).join(', ');
 
   if (skillGroups.length === 0) {
     return {
@@ -170,9 +157,9 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
       status: 'fail',
       summary: 'No skills directories detected',
       details:
-        'No skills/, .skills/, or directories containing SKILL.md were found.',
+        `No supported skill roots were found. Checked: ${supportedSkillRoots}.`,
       recommendations: [
-        'Add a skills/ directory with SKILL.md files to define agent skill capabilities.',
+        `Add skills under one of the supported roots: ${supportedSkillRoots}.`,
       ],
       references: [],
       whyThisMatters: WHY_THIS_MATTERS,

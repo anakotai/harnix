@@ -176,7 +176,7 @@ Harnix ships with 7 MVP checks:
 |---|---|---|---|---|
 | `agents-md` | Agent guidance | Agent Readiness | Critical | Detects AGENTS.md or CLAUDE.md; scores content length and substance |
 | `documentation` | Documentation | Documentation | Critical | Checks for substantive README.md and docs/prds directories |
-| `agent-skills` | Agent skills | Agent Readiness | Important | Detects skills directories, validates SKILL.md frontmatter, flags commented-out code |
+| `agent-skills` | Agent skills | Agent Readiness | Important | Detects skills in supported roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`), validates SKILL.md frontmatter, flags commented-out code |
 | `ci-pipeline` | CI pipeline | Quality Gates | Important | Detects CI/CD config for GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis, Azure Pipelines |
 | `repo-structure` | Repo structure | Infrastructure | Important | Detects monorepo/submodule setup, source organization, root file ratio |
 | `source-of-truth` | Source of truth | Organization | Important | Flags single-source-of-truth violations across 6 semantic groups |

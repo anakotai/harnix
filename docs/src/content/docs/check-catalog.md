@@ -112,11 +112,11 @@ Components are summed for a maximum score of 1.0.
 
 **Category:** `agent-readiness` · **Tier:** `important` · **Applies to:** all repositories
 
-Detects skill directories and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Commented-out code within skill files is flagged as a security risk.
+Detects skills in supported roots and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Commented-out code within skill files is flagged as a security risk.
 
 **What it checks:**
 
-- Presence of skill directories (`skills/`, `.skills/`, or directories containing `SKILL.md`)
+- Presence of skill roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`)
 - Each skill has a valid `SKILL.md` with frontmatter and body content
 - Subdirectories are restricted to `scripts/`, `references/`, and `assets/`
 - Commented-out code patterns (flagged as security risk)
