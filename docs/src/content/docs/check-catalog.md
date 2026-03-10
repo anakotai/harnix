@@ -7,21 +7,25 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 
 ## Active checks
 
-| Check ID | Name | Category | Tier | Applies to |
+| Name | Check ID | Category | Tier | Applies to |
 |---|---|---|---|---|
-| `agents-md` | Agent guidance | `agent-readiness` | `critical` | `all` |
-| `documentation` | Documentation | `documentation` | `critical` | `all` |
-| `ci-pipeline` | CI pipeline | `quality-gates` | `important` | `software` |
-| `testing-provision` | Testing provision | `quality` | `important` | `software` |
-| `agent-skills` | Agent skills | `agent-readiness` | `important` | `all` |
-| `repo-structure` | Repo structure | `infrastructure` | `important` | `software` |
-| `source-of-truth` | Source of truth | `organization` | `important` | `all` |
+| Agent guidance | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| Documentation | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| CI pipeline | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
+| Testing provision | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
+| Agent skills | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| Repo structure | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
+| Source of truth | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 
 ## Check details
 
-### `agents-md`
+### Agent guidance
 
-**Category:** `agent-readiness` · **Tier:** `critical` · **Applies to:** all repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">agent-readiness</span>
+  <span class="check-badge check-badge--tier">critical</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
 
 Detects whether the repository provides agent guidance via a root-level `AGENTS.md` or `CLAUDE.md` file. The file should contain setup instructions, test commands, and repository guardrails for AI coding agents.
 
@@ -41,9 +45,13 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 
 ---
 
-### `documentation`
+### Documentation
 
-**Category:** `documentation` · **Tier:** `critical` · **Applies to:** all repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">critical</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
 
 Checks for a substantive `README.md` and supporting documentation directories. Repositories with both a well-written README and a durable docs structure score highest.
 
@@ -65,9 +73,13 @@ The base and bonus are summed, capped at 1.0.
 
 ---
 
-### `ci-pipeline`
+### CI pipeline
 
-**Category:** `quality-gates` · **Tier:** `important` · **Applies to:** software repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">quality-gates</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">software repositories</span>
+</div>
 
 Detects whether the repository has a CI/CD pipeline configured. Supports GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis CI, and Azure Pipelines.
 
@@ -84,9 +96,13 @@ Detects whether the repository has a CI/CD pipeline configured. Supports GitHub 
 
 ---
 
-### `testing-provision`
+### Testing provision
 
-**Category:** `quality` · **Tier:** `important` · **Applies to:** software repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">quality</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">software repositories</span>
+</div>
 
 Evaluates whether the repository has runnable tests, properly isolated test directories, and testing documentation. Repositories that separate tests into dedicated directories and document their testing approach receive the highest scores.
 
@@ -108,9 +124,13 @@ Components are summed for a maximum score of 1.0.
 
 ---
 
-### `agent-skills`
+### Agent skills
 
-**Category:** `agent-readiness` · **Tier:** `important` · **Applies to:** all repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">agent-readiness</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
 
 Detects skills in supported roots and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Commented-out code within skill files is flagged as a security risk.
 
@@ -134,9 +154,13 @@ The score is 0 when no skill directories are found, and ranges from 0.2 to 1.0 b
 
 ---
 
-### `repo-structure`
+### Repo structure
 
-**Category:** `infrastructure` · **Tier:** `important` · **Applies to:** software repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">infrastructure</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">software repositories</span>
+</div>
 
 Evaluates the repository's source code organization, separation of concerns, and monorepo tooling. Well-structured repositories keep root clutter low, organize source code in dedicated directories, and configure workspaces when using submodules.
 
@@ -162,9 +186,13 @@ Components are summed for a maximum score of 1.0.
 
 ---
 
-### `source-of-truth`
+### Source of truth
 
-**Category:** `organization` · **Tier:** `important` · **Applies to:** all repositories
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">organization</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
 
 Detects single-source-of-truth violations by scanning for duplicate definitions across six semantic groups. When the same kind of configuration, policy, or specification appears in multiple locations, it signals organizational drift and maintenance risk.
 

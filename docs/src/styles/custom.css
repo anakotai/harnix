@@ -149,3 +149,36 @@ h6 {
 .docs-map-link :where(.card) {
   height: 100%;
 }
+
+.check-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 999px;
+  background: var(--sl-color-bg-inline-code);
+  color: var(--sl-color-text);
+  font-size: var(--sl-text-body-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.check-badge--category {
+  border-color: var(--sl-color-accent);
+}
+
+.check-badge--tier {
+  border-color: var(--sl-color-red);
+}
+
+.check-badge--scope {
+  border-color: var(--sl-color-gray-4);
+}
+
+.check-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.8rem;
+}
