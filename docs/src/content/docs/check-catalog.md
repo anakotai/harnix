@@ -9,13 +9,13 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 
 | Name | Check ID | Category | Tier | Applies to |
 |---|---|---|---|---|
-| Agent guidance | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
-| Documentation | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
-| CI pipeline | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
-| Testing provision | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
-| Agent skills | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
-| Repo structure | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
-| Source of truth | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Agent guidance](#agent-guidance) | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Agent skills](#agent-skills) | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
+| [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
+| [Source of truth](#source-of-truth) | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 
 ## Check details
 
@@ -42,85 +42,6 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 | File exists but is empty | 0.6 |
 | File exists but is brief (< 120 characters) | 0.8 |
 | File exists with substantive content (≥ 120 characters) | 1.0 |
-
----
-
-### Documentation
-
-<div class="check-detail-meta">
-  <span class="check-badge check-badge--category">documentation</span>
-  <span class="check-badge check-badge--tier">critical</span>
-  <span class="check-badge check-badge--scope">all repositories</span>
-</div>
-
-Checks for a substantive `README.md` and supporting documentation directories. Repositories with both a well-written README and a durable docs structure score highest.
-
-**What it checks:**
-
-- Presence and length of `README.md` at the repository root
-- Presence of documentation directories (`docs/` or `prds/`)
-
-**Scoring:**
-
-| Condition | Score |
-|---|---|
-| No README found | 0.2 |
-| Brief README (< 120 characters) | 0.3 base |
-| Substantive README (≥ 120 characters) | 0.6 base |
-| `docs/` or `prds/` directory exists | +0.4 bonus |
-
-The base and bonus are summed, capped at 1.0.
-
----
-
-### CI pipeline
-
-<div class="check-detail-meta">
-  <span class="check-badge check-badge--category">quality-gates</span>
-  <span class="check-badge check-badge--tier">important</span>
-  <span class="check-badge check-badge--scope">software repositories</span>
-</div>
-
-Detects whether the repository has a CI/CD pipeline configured. Supports GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis CI, and Azure Pipelines.
-
-**What it checks:**
-
-- Presence of CI configuration files or directories (e.g., `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `Jenkinsfile`, `.travis.yml`, `azure-pipelines.yml`)
-
-**Scoring:**
-
-| Condition | Score |
-|---|---|
-| No CI configuration detected | 0 |
-| At least one CI system detected | 1.0 |
-
----
-
-### Testing provision
-
-<div class="check-detail-meta">
-  <span class="check-badge check-badge--category">quality</span>
-  <span class="check-badge check-badge--tier">important</span>
-  <span class="check-badge check-badge--scope">software repositories</span>
-</div>
-
-Evaluates whether the repository has runnable tests, properly isolated test directories, and testing documentation. Repositories that separate tests into dedicated directories and document their testing approach receive the highest scores.
-
-**What it checks:**
-
-- Presence of test files (patterns like `*.test.ts`, `*.spec.ts`, `*.test.js`, etc.)
-- Test isolation in dedicated directories (`test/`, `tests/`, `__tests__/`)
-- Testing documentation in README or standalone test docs (e.g., `test*.md`)
-
-**Scoring:**
-
-| Component | Points |
-|---|---|
-| Test files exist | +0.6 |
-| Tests isolated in dedicated directories | +0.25 |
-| Testing documentation present | +0.15 |
-
-Components are summed for a maximum score of 1.0.
 
 ---
 
@@ -151,6 +72,57 @@ Detects skills in supported roots and validates that each skill conforms to the 
 | Commented-out code detected | Penalty applied (reduces score) |
 
 The score is 0 when no skill directories are found, and ranges from 0.2 to 1.0 based on the ratio of compliant skills and the absence of security violations.
+
+---
+
+### CI pipeline
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">quality-gates</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">software repositories</span>
+</div>
+
+Detects whether the repository has a CI/CD pipeline configured. Supports GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis CI, and Azure Pipelines.
+
+**What it checks:**
+
+- Presence of CI configuration files or directories (e.g., `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `Jenkinsfile`, `.travis.yml`, `azure-pipelines.yml`)
+
+**Scoring:**
+
+| Condition | Score |
+|---|---|
+| No CI configuration detected | 0 |
+| At least one CI system detected | 1.0 |
+
+---
+
+### Documentation
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">critical</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+Checks for a substantive `README.md` and supporting documentation directories. Repositories with both a well-written README and a durable docs structure score highest.
+
+**What it checks:**
+
+- Presence and length of `README.md` at the repository root
+- Presence of documentation directories (`docs/` or `prds/`)
+
+**Scoring:**
+
+| Condition | Score |
+|---|---|
+| No README found | 0.2 |
+| Brief README (< 120 characters) | 0.3 base |
+| Substantive README (≥ 120 characters) | 0.6 base |
+| `docs/` or `prds/` directory exists | +0.4 bonus |
+
+The base and bonus are summed, capped at 1.0.
 
 ---
 
@@ -218,6 +190,34 @@ Six semantic groups are evaluated for duplication:
 | Four or more violations | 0 |
 
 Each violation reduces the score by 0.25.
+
+---
+
+### Testing provision
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">quality</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">software repositories</span>
+</div>
+
+Evaluates whether the repository has runnable tests, properly isolated test directories, and testing documentation. Repositories that separate tests into dedicated directories and document their testing approach receive the highest scores.
+
+**What it checks:**
+
+- Presence of test files (patterns like `*.test.ts`, `*.spec.ts`, `*.test.js`, etc.)
+- Test isolation in dedicated directories (`test/`, `tests/`, `__tests__/`)
+- Testing documentation in README or standalone test docs (e.g., `test*.md`)
+
+**Scoring:**
+
+| Component | Points |
+|---|---|
+| Test files exist | +0.6 |
+| Tests isolated in dedicated directories | +0.25 |
+| Testing documentation present | +0.15 |
+
+Components are summed for a maximum score of 1.0.
 
 ## Filter by check ID
 
