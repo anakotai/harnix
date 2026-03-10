@@ -4,6 +4,44 @@ import type { CheckResult } from "./types.js";
 import { SCORE_BANDS } from "./types.js";
 import { tierWeight } from "./engine.js";
 
+const ANSI_RESET = "\u001b[0m";
+const ANSI_BOLD = "\u001b[1m";
+const ANSI_RED = "\u001b[31m";
+const ANSI_GREEN = "\u001b[32m";
+const ANSI_LIGHT_GREEN = "\u001b[92m";
+const ANSI_ORANGE = "\u001b[38;5;208m";
+
+function supportsAnsiStyling(): boolean {
+  if (process.env.NO_COLOR !== undefined || process.env.FORCE_COLOR === "0") {
+    return false;
+  }
+  return process.stdout.isTTY === true;
+}
+
+function styleAnsi(text: string, ...codes: string[]): string {
+  if (!supportsAnsiStyling() || codes.length === 0) {
+    return text;
+  }
+  return `${codes.join("")}${text}${ANSI_RESET}`;
+}
+
+function bold(text: string): string {
+  return styleAnsi(text, ANSI_BOLD);
+}
+
+function overallColorCode(scorePercent: number): string {
+  if (scorePercent <= 25) {
+    return ANSI_RED;
+  }
+  if (scorePercent <= 50) {
+    return ANSI_ORANGE;
+  }
+  if (scorePercent <= 75) {
+    return ANSI_LIGHT_GREEN;
+  }
+  return ANSI_GREEN;
+}
+
 export function overallBand(scorePercent: number): string {
   if (scorePercent >= SCORE_BANDS.excellent.min) {
     return SCORE_BANDS.excellent.label;
@@ -25,6 +63,16 @@ function symbolForStatus(status: "pass" | "partial" | "fail"): string {
     return "△";
   }
   return "✗";
+}
+
+function colorSymbolForStatus(status: "pass" | "partial" | "fail"): string {
+  if (status === "pass") {
+    return styleAnsi(symbolForStatus(status), ANSI_GREEN);
+  }
+  if (status === "partial") {
+    return styleAnsi(symbolForStatus(status), ANSI_ORANGE);
+  }
+  return styleAnsi(symbolForStatus(status), ANSI_RED);
 }
 
 function formatPercent(score: number): string {
@@ -837,9 +885,11 @@ export function printConsoleReport(
   const band = overallBand(overallPercent);
   const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
 
-  console.log(`Harness Readiness Report: ${targetPath}`);
+  console.log(bold(`Harness Readiness Report: ${targetPath}`));
   console.log("───────────────────────────────────────");
-  console.log(`Overall: ${band} (${overallPercent}%)`);
+  console.log(
+    `${bold("Overall score:")} ${styleAnsi(`${band} (${overallPercent}%)`, overallColorCode(overallPercent))}`
+  );
   if (recursiveScans.length > 0) {
     console.log("Monorepo breakdown:");
     for (const entry of recursiveScans) {
@@ -855,8 +905,8 @@ export function printConsoleReport(
   console.log("");
 
   for (const check of checks) {
-    const symbol = symbolForStatus(check.status);
-    const name = check.name.padEnd(18, " ");
+    const symbol = colorSymbolForStatus(check.status);
+    const name = bold(check.name.padEnd(18, " "));
     const percent = formatPercent(check.score).padStart(4, " ");
     console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
 
@@ -872,7 +922,7 @@ export function printConsoleReport(
   const recommendations = topRecommendations(checks);
   if (recommendations.length > 0) {
     console.log("");
-    console.log("Top recommendations:");
+    console.log(bold("Top recommendations:"));
     recommendations.forEach((item, index) => {
       console.log(`${index + 1}. ${item.recommendation}`);
     });

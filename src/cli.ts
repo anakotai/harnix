@@ -8,12 +8,28 @@ import { configSchema } from "./schemas/config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
+const ANSI_RESET = "\u001b[0m";
+const ANSI_BOLD = "\u001b[1m";
 
 interface ScanConfig {
   outputPath?: string;
   skipIds?: string[];
   onlyIds?: string[];
   repoType?: "software" | "non-software";
+}
+
+function supportsAnsiStyling(): boolean {
+  if (process.env.NO_COLOR !== undefined || process.env.FORCE_COLOR === "0") {
+    return false;
+  }
+  return process.stdout.isTTY === true;
+}
+
+function bold(text: string): string {
+  if (!supportsAnsiStyling()) {
+    return text;
+  }
+  return `${ANSI_BOLD}${text}${ANSI_RESET}`;
 }
 
 async function readVersion(): Promise<string> {
@@ -352,6 +368,7 @@ export async function runCli(args: string[]): Promise<void> {
     { recursiveScans: result.recursiveScans }
   );
   console.log("");
-  console.log(`Reports written: ${reports.markdownPath}`);
-  console.log(`                 ${reports.htmlPath}`);
+  console.log(bold("Reports written:"));
+  console.log(reports.markdownPath);
+  console.log(reports.htmlPath);
 }
