@@ -26,7 +26,7 @@ A harness-ready repository reduces:
 
 Most repositories contain implicit knowledge — undocumented build steps, tribal conventions, and assumptions about tooling — that only long-tenured team members understand. When AI agents or new contributors encounter these repositories, they lack the context to operate safely. Common failure modes include:
 
-- Running the wrong build command because no `AGENTS.md` exists
+- Running the wrong build command because no `README.md` exists
 - Creating duplicate configuration files because the canonical source of truth is unclear
 - Missing required CI checks because pipeline setup is not discoverable
 
