@@ -29,12 +29,12 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 
 Detects whether the repository provides agent guidance via a root-level `AGENTS.md` or `CLAUDE.md` file. The file should contain setup instructions, test commands, and repository guardrails for AI coding agents.
 
-**What it checks:**
+#### What it checks
 
 - Presence of `AGENTS.md` or `CLAUDE.md` at the repository root
 - Content length and substance of the guidance file
 
-**Scoring:**
+#### Scoring
 
 | Condition | Score |
 |---|---|
@@ -42,8 +42,6 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 | File exists but is empty | 0.6 |
 | File exists but is brief (< 120 characters) | 0.8 |
 | File exists with substantive content (≥ 120 characters) | 1.0 |
-
----
 
 ### Agent skills
 
@@ -55,14 +53,14 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 
 Detects skills in supported roots and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Commented-out code within skill files is flagged as a security risk.
 
-**What it checks:**
+#### What it checks
 
 - Presence of skill roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`)
 - Each skill has a valid `SKILL.md` with frontmatter and body content
 - Subdirectories are restricted to `scripts/`, `references/`, and `assets/`
 - Commented-out code patterns (flagged as security risk)
 
-**Scoring:**
+#### Scoring
 
 | Condition | Score |
 |---|---|
@@ -72,8 +70,6 @@ Detects skills in supported roots and validates that each skill conforms to the 
 | Commented-out code detected | Penalty applied (reduces score) |
 
 The score is 0 when no skill directories are found, and ranges from 0.2 to 1.0 based on the ratio of compliant skills and the absence of security violations.
-
----
 
 ### CI pipeline
 
@@ -85,18 +81,16 @@ The score is 0 when no skill directories are found, and ranges from 0.2 to 1.0 b
 
 Detects whether the repository has a CI/CD pipeline configured. Supports GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis CI, and Azure Pipelines.
 
-**What it checks:**
+#### What it checks
 
 - Presence of CI configuration files or directories (e.g., `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `Jenkinsfile`, `.travis.yml`, `azure-pipelines.yml`)
 
-**Scoring:**
+#### Scoring
 
 | Condition | Score |
 |---|---|
 | No CI configuration detected | 0 |
 | At least one CI system detected | 1.0 |
-
----
 
 ### Documentation
 
@@ -108,12 +102,12 @@ Detects whether the repository has a CI/CD pipeline configured. Supports GitHub 
 
 Checks for a substantive `README.md` and supporting documentation directories. Repositories with both a well-written README and a durable docs structure score highest.
 
-**What it checks:**
+#### What it checks
 
 - Presence and length of `README.md` at the repository root
 - Presence of documentation directories (`docs/` or `prds/`)
 
-**Scoring:**
+#### Scoring
 
 | Condition | Score |
 |---|---|
@@ -123,8 +117,6 @@ Checks for a substantive `README.md` and supporting documentation directories. R
 | `docs/` or `prds/` directory exists | +0.4 bonus |
 
 The base and bonus are summed, capped at 1.0.
-
----
 
 ### Repo structure
 
@@ -136,14 +128,14 @@ The base and bonus are summed, capped at 1.0.
 
 Evaluates the repository's source code organization, separation of concerns, and monorepo tooling. Well-structured repositories keep root clutter low, organize source code in dedicated directories, and configure workspaces when using submodules.
 
-**What it checks:**
+#### What it checks
 
 - Source code directories (`src/`, `lib/`, `packages/`, `apps/`, `modules/`, `crates/`)
 - Root file ratio (percentage of files at the repository root vs. subdirectories)
 - Monorepo signals (`.gitmodules`, workspace configurations in `package.json`, `pnpm-workspace.yaml`, etc.)
 - Presence of any meaningful subdirectory structure
 
-**Scoring:**
+#### Scoring
 
 | Component | Points |
 |---|---|
@@ -156,8 +148,6 @@ Evaluates the repository's source code organization, separation of concerns, and
 
 Components are summed for a maximum score of 1.0.
 
----
-
 ### Source of truth
 
 <div class="check-detail-meta">
@@ -168,7 +158,7 @@ Components are summed for a maximum score of 1.0.
 
 Detects single-source-of-truth violations by scanning for duplicate definitions across six semantic groups. When the same kind of configuration, policy, or specification appears in multiple locations, it signals organizational drift and maintenance risk.
 
-**What it checks:**
+#### What it checks
 
 Six semantic groups are evaluated for duplication:
 
@@ -179,7 +169,7 @@ Six semantic groups are evaluated for duplication:
 5. **API Specs** — OpenAPI / Swagger definitions
 6. **Database Config** — migration files, schema definitions
 
-**Scoring:**
+#### Scoring
 
 | Condition | Score |
 |---|---|
@@ -191,8 +181,6 @@ Six semantic groups are evaluated for duplication:
 
 Each violation reduces the score by 0.25.
 
----
-
 ### Testing provision
 
 <div class="check-detail-meta">
@@ -203,13 +191,13 @@ Each violation reduces the score by 0.25.
 
 Evaluates whether the repository has runnable tests, properly isolated test directories, and testing documentation. Repositories that separate tests into dedicated directories and document their testing approach receive the highest scores.
 
-**What it checks:**
+#### What it checks
 
 - Presence of test files (patterns like `*.test.ts`, `*.spec.ts`, `*.test.js`, etc.)
 - Test isolation in dedicated directories (`test/`, `tests/`, `__tests__/`)
 - Testing documentation in README or standalone test docs (e.g., `test*.md`)
 
-**Scoring:**
+#### Scoring
 
 | Component | Points |
 |---|---|
