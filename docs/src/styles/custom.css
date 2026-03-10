@@ -134,3 +134,18 @@ h5,
 h6 {
   font-family: 'Roboto Serif', serif;
 }
+
+.docs-map-link {
+  display: block;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.docs-map-link:hover {
+  text-decoration: none;
+}
+
+.docs-map-link :where(.card) {
+  height: 100%;
+}
