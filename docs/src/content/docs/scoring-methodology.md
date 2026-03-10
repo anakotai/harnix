@@ -9,18 +9,17 @@ Each check returns a numeric score in the range `0.0` to `1.0`.
 
 Harnix displays these as percentages:
 
-- `1.0` -> `100%`
-- `0.75` -> `75%`
-- `0.5` -> `50%`
-- `0.0` -> `0%`
+- `1.0`: 100%
+- `0.75`: 75%
+- `0.0`: 0%
 
 ## Status mapping
 
 Per-check statuses are derived from percentage thresholds:
 
-- `✓ pass`: `>= 75%`
-- `△ partial`: `25%` to `74%`
-- `✗ fail`: `< 25%`
+- `✓ pass`: >= 75%
+- `△ partial`: >= 25%, < 75%
+- `✗ fail`: < 25%
 
 ## Overall score
 
@@ -47,9 +46,9 @@ Each check has an assigned tier that influences its contribution to the overall 
 
 | Tier | Weight | Description |
 |------|--------|-------------|
-| `critical` | 3 | Essential signals that must be present for reliable agent and human usage |
-| `important` | 2 | Significant signals that improve readiness but are not blockers |
-| `nice-to-have` | 1 | Supplementary signals that indicate mature repository practices |
+| <span class="check-badge check-badge--tier">critical</span> | 3 | Essential signals that must be present for reliable agent and human usage |
+| <span class="check-badge check-badge--tier">important</span> | 2 | Significant signals that improve readiness but are not blockers |
+| <span class="check-badge check-badge--tier">nice-to-have</span> | 1 | Supplementary signals that indicate mature repository practices |
 
 The overall score is computed as a weighted average:
 
