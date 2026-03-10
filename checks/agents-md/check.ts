@@ -12,6 +12,86 @@ function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
   return 'fail';
 }
 
+function evaluateGuidanceLength(
+  sourceFile: string,
+  guidanceLength: number,
+): Pick<CheckResult, 'score' | 'summary' | 'details' | 'recommendations'> {
+  if (guidanceLength === 0) {
+    return {
+      score: 0.2,
+      summary: `${sourceFile} is suspiciously empty`,
+      details: `${sourceFile} exists but contains no guidance text.`,
+      recommendations: [
+        'Add concise, repo-specific guidance covering common commands, traps, and workflow constraints.',
+      ],
+    };
+  }
+
+  if (guidanceLength >= 10000) {
+    return {
+      score: 0.2,
+      summary: `${sourceFile} is suspiciously long`,
+      details: `${sourceFile} contains ${guidanceLength} characters. Agent guidance this long is hard to scan quickly and likely mixes instructions with reference material.`,
+      recommendations: [
+        'Trim AGENTS.md to the highest-value workflow guidance and move bulky reference content into linked docs.',
+      ],
+    };
+  }
+
+  if (guidanceLength >= 5000) {
+    return {
+      score: 0.4,
+      summary: `${sourceFile} is getting long`,
+      details: `${sourceFile} contains ${guidanceLength} characters. The guidance is likely useful, but its length will slow agent onboarding and retrieval.`,
+      recommendations: [
+        'Condense AGENTS.md and link out to deeper documentation for background material or edge cases.',
+      ],
+    };
+  }
+
+  if (guidanceLength >= 3000) {
+    return {
+      score: 0.6,
+      summary: `${sourceFile} is a bit long but still fine`,
+      details: `${sourceFile} contains ${guidanceLength} characters. The file is still usable, but tighter instructions would improve scan efficiency.`,
+      recommendations: [
+        'Keep AGENTS.md focused on workflow-critical guidance and move secondary detail into linked docs if it grows further.',
+      ],
+    };
+  }
+
+  if (guidanceLength >= 1000) {
+    return {
+      score: 1,
+      summary: `${sourceFile} has substantive guidance`,
+      details: `${sourceFile} contains ${guidanceLength} characters of substantive guidance without being overly long.`,
+      recommendations: [
+        'Keep AGENTS.md current as workflows, commands, and repository conventions change.',
+      ],
+    };
+  }
+
+  if (guidanceLength >= 120) {
+    return {
+      score: 0.8,
+      summary: `${sourceFile} is a bit brief but still fine`,
+      details: `${sourceFile} contains ${guidanceLength} characters. The guidance is short, but still provides some direct repository context.`,
+      recommendations: [
+        'Expand AGENTS.md with concrete build, test, and module-specific workflow instructions if the repo has important edge cases or workflow traps.',
+      ],
+    };
+  }
+
+  return {
+    score: 0.4,
+    summary: `${sourceFile} is getting short`,
+    details: `${sourceFile} contains only ${guidanceLength} characters. This is likely too little guidance for reliable agent operation.`,
+    recommendations: [
+      'Expand AGENTS.md with concrete build, test, and module-specific workflow instructions.',
+    ],
+  };
+}
+
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   const { rootPath, files } = ctx;
   const hasAgents = files.includes('AGENTS.md');
@@ -62,29 +142,10 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
 
   const trimmed = content.trim();
   const guidanceLength = trimmed.length;
-
-  let score = 1;
-  let summary = `${sourceFile} present`;
-  let details = `${sourceFile} is present with ${guidanceLength} characters of guidance.`;
-  let recommendations = [
-    'Keep AGENTS.md current as workflows, commands, and repository conventions change.',
-  ];
-
-  if (trimmed.length === 0) {
-    score = 0.6;
-    summary = `${sourceFile} is empty but intentionally present`;
-    details = `${sourceFile} exists but contains no guidance text.`;
-    recommendations = [
-      'Add concise, high-value agent guidance (common commands, traps, and repo-specific rules).',
-    ];
-  } else if (trimmed.length < 120) {
-    score = 0.8;
-    summary = `${sourceFile} has brief guidance`;
-    details = `${sourceFile} contains only ${guidanceLength} characters; more context is likely needed for reliable agent operation.`;
-    recommendations = [
-      'Expand AGENTS.md with concrete build, test, and module-specific workflow instructions.',
-    ];
-  }
+  const { score, summary, details, recommendations } = evaluateGuidanceLength(
+    sourceFile,
+    guidanceLength,
+  );
 
   return {
     id: 'agents-md',
