@@ -150,6 +150,18 @@ h6 {
   height: 100%;
 }
 
+.docs-map-grid :where(.card .title) {
+  font-size: clamp(1rem, 0.82rem + 0.42vw, 1.25rem);
+  font-weight: 700;
+  gap: 0.9rem;
+}
+
+.docs-map-grid :where(.card .title .icon) {
+  font-size: 1.55em;
+  padding: 0.25em;
+  border-radius: 0.35rem;
+}
+
 .check-badge {
   display: inline-flex;
   align-items: center;
