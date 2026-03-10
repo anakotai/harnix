@@ -27,7 +27,7 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
   <span class="check-badge check-badge--scope">all repositories</span>
 </div>
 
-Detects whether the repository provides agent guidance via a root-level `AGENTS.md` or `CLAUDE.md` file. The file should contain setup instructions, test commands, and repository guardrails for AI coding agents.
+Detects whether the repository provides agent guidance via a root-level `AGENTS.md` or `CLAUDE.md` file. The file should contain repo-specific constraints, non-obvious gotchas, paths or conventions that agents would otherwise miss.
 
 #### What it checks
 
@@ -38,10 +38,20 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 
 | Condition | Score |
 |---|---|
-| No guidance file found | 0 |
-| File exists but is empty | 0.6 |
-| File exists but is brief (< 120 characters) | 0.8 |
-| File exists with substantive content (≥ 120 characters) | 1.0 |
+| No AGENTS found | 0 |
+| Suspiciously empty file (0 chars) | 0.2 |
+| Suspiciously long file (10,000+ chars) | 0.2 |
+| File is getting long (5,000 ~ 10,000 chars) | 0.4 |
+| File is getting short (less than 120 chars) | 0.4 |
+| File is a bit long, but still fine (3,000 ~ 5,000 chars) | 0.6 |
+| File is a bit brief, but still fine (120 ~ 1,000 chars) | 0.8 |
+| File has substantive content and not too long (1,000 ~ 3,000 chars) | 1.0 |
+
+#### References
+- **[AGENTS.md](https://agents.md/)**  
+A simple, open format for guiding coding agents
+- **[Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding Agents?](https://arxiv.org/abs/2602.11988)**  
+Paper by Thibaud Gloaguen, Niels Mündler, Mark Müller, Veselin Raychev, Martin Vechev
 
 ### Agent skills
 
