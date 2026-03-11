@@ -47,12 +47,6 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
 | File is a bit brief, but still fine (120 ~ 1,000 chars) | 0.8 |
 | File has substantive content and not too long (1,000 ~ 3,000 chars) | 1.0 |
 
-#### References
-- **[AGENTS.md](https://agents.md/)**  
-A simple, open format for guiding coding agents
-- **[Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding Agents?](https://arxiv.org/abs/2602.11988)**  
-Paper by Thibaud Gloaguen, Niels Mündler, Mark Müller, Veselin Raychev, Martin Vechev
-
 ### Agent skills
 
 <div class="check-detail-meta">
