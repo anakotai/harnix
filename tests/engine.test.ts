@@ -84,6 +84,54 @@ describe("scanRepository", () => {
       await fs.rm(rootDir, { recursive: true, force: true });
     }
   });
+
+  it("limits recursive scans using maxDepth", async () => {
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-depth-"));
+    const submodulePath = path.join(rootDir, "software");
+    const nestedSubmodulePath = path.join(submodulePath, "harnix");
+
+    try {
+      await fs.writeFile(
+        path.join(rootDir, ".gitmodules"),
+        ['[submodule "software"]', "\tpath = software", "\turl = https://example.invalid/software.git"].join("\n"),
+        "utf8",
+      );
+      await fs.writeFile(path.join(rootDir, "README.md"), "# Root\n", "utf8");
+      await fs.writeFile(path.join(rootDir, "package.json"), '{ "name": "root-repo" }\n', "utf8");
+
+      await fs.mkdir(submodulePath, { recursive: true });
+      await fs.writeFile(path.join(submodulePath, "package.json"), '{ "name": "software-repo" }\n', "utf8");
+      await fs.writeFile(path.join(submodulePath, "README.md"), "# Software\n", "utf8");
+      await fs.writeFile(
+        path.join(submodulePath, ".gitmodules"),
+        ['[submodule "harnix"]', "\tpath = harnix", "\turl = https://example.invalid/harnix.git"].join("\n"),
+        "utf8",
+      );
+
+      await fs.mkdir(nestedSubmodulePath, { recursive: true });
+      await fs.writeFile(path.join(nestedSubmodulePath, "package.json"), '{ "name": "nested-repo" }\n', "utf8");
+      await fs.writeFile(path.join(nestedSubmodulePath, "README.md"), "# Nested\n", "utf8");
+
+      const depth0 = await scanRepository(rootDir, { maxDepth: 0 });
+      expect(depth0.recursiveScans).toHaveLength(0);
+
+      const depth1 = await scanRepository(rootDir, { maxDepth: 1 });
+      expect(depth1.recursiveScans.map((scan) => scan.path)).toEqual(["software"]);
+      expect(depth1.recursiveScans[0]?.result?.recursiveScans).toHaveLength(0);
+
+      const depth2 = await scanRepository(rootDir, { maxDepth: 2 });
+      const levelOne = depth2.recursiveScans.find((scan) => scan.path === "software")?.result;
+      expect(levelOne?.recursiveScans.map((scan) => scan.path)).toContain("harnix");
+    } finally {
+      await fs.rm(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws for invalid maxDepth values", async () => {
+    await expect(
+      scanRepository(path.join(FIXTURES, "pass-all"), { maxDepth: -1 }),
+    ).rejects.toThrow("Invalid maxDepth");
+  });
 });
 
 describe("tier-weighted scoring", () => {

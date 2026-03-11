@@ -161,7 +161,9 @@ export interface ScanOptions {
   onlyIds?: string[];
   repoType?: "software" | "non-software";
   recursive?: boolean;
+  maxDepth?: number;
   _visitedPaths?: Set<string>;
+  _currentDepth?: number;
 }
 
 export interface ScanResult {
@@ -194,6 +196,15 @@ export function tierWeight(tier: string): number {
 export async function scanRepository(targetPath: string, options: ScanOptions = {}): Promise<ScanResult> {
   const absolutePath = path.resolve(targetPath);
   const recursive = options.recursive !== false;
+  if (
+    typeof options.maxDepth === "number" &&
+    (!Number.isInteger(options.maxDepth) || options.maxDepth < 0)
+  ) {
+    throw new Error("Invalid maxDepth: expected a non-negative integer");
+  }
+  const configuredMaxDepth = options.maxDepth;
+  const maxDepth = configuredMaxDepth ?? Number.POSITIVE_INFINITY;
+  const currentDepth = options._currentDepth ?? 0;
   const visitedPaths = options._visitedPaths ?? new Set<string>();
   visitedPaths.add(absolutePath);
 
@@ -207,13 +218,15 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
     onlyIds: options.onlyIds
   });
 
-  const recursiveScans = recursive
-    ? await runRecursiveScans(absolutePath, gitInfo, {
-        skipIds: options.skipIds,
-        onlyIds: options.onlyIds,
-        recursive,
-        visitedPaths
-      })
+  const recursiveScans = recursive && currentDepth < maxDepth
+      ? await runRecursiveScans(absolutePath, gitInfo, {
+          skipIds: options.skipIds,
+          onlyIds: options.onlyIds,
+          maxDepth: configuredMaxDepth,
+          currentDepth,
+          recursive,
+          visitedPaths
+        })
     : [];
 
   const weightedSum = checks.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
@@ -233,6 +246,8 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
 interface RecursiveScanOptions {
   skipIds?: string[];
   onlyIds?: string[];
+  maxDepth?: number;
+  currentDepth: number;
   recursive: boolean;
   visitedPaths: Set<string>;
 }
@@ -273,8 +288,10 @@ async function runRecursiveScans(
       const result = await scanRepository(absoluteChildPath, {
         skipIds: options.skipIds,
         onlyIds: options.onlyIds,
+        maxDepth: options.maxDepth,
         recursive: options.recursive,
-        _visitedPaths: options.visitedPaths
+        _visitedPaths: options.visitedPaths,
+        _currentDepth: options.currentDepth + 1
       });
 
       recursiveScans.push({

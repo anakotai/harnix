@@ -81,6 +81,33 @@ describe("buildMarkdownReport", () => {
     const md = buildMarkdownReport("/test/repo", sampleChecks, 0.82, "20260305T143045");
     expect(md).toContain("82%");
   });
+
+  it("includes nested recursive entries using joined paths", () => {
+    const md = buildMarkdownReport("/test/repo", sampleChecks, 0.65, "20260305T143045", {
+      recursiveScans: [
+        {
+          path: "software",
+          kind: "submodule",
+          result: {
+            checks: sampleChecks,
+            overallScore: 0.58,
+            recursiveScans: [
+              {
+                path: "harnix",
+                kind: "submodule",
+                result: {
+                  checks: sampleChecks,
+                  overallScore: 0.59,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect(md).toContain("`software`");
+    expect(md).toContain("`software/harnix`");
+  });
 });
 
 describe("buildHtmlReport", () => {
@@ -94,6 +121,33 @@ describe("buildHtmlReport", () => {
   it("includes score percentage in HTML", () => {
     const html = buildHtmlReport("/test/repo", sampleChecks, 0.9, "20260305T143045");
     expect(html).toContain("90%");
+  });
+
+  it("includes nested recursive entries using joined paths", () => {
+    const html = buildHtmlReport("/test/repo", sampleChecks, 0.65, "20260305T143045", {
+      recursiveScans: [
+        {
+          path: "software",
+          kind: "submodule",
+          result: {
+            checks: sampleChecks,
+            overallScore: 0.58,
+            recursiveScans: [
+              {
+                path: "harnix",
+                kind: "submodule",
+                result: {
+                  checks: sampleChecks,
+                  overallScore: 0.59,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect(html).toContain("<code>software</code>");
+    expect(html).toContain("<code>software/harnix</code>");
   });
 });
 
@@ -139,6 +193,41 @@ describe("printConsoleReport", () => {
       expect(calls[headingIndex - 1]).toBe("");
       expect(calls[headingIndex]).toContain("Monorepo breakdown:");
       expect(calls[headingIndex + 1]).toBe("- Submodule submodules/core: Poor (24%)");
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("prints nested monorepo entries with joined paths", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    try {
+      printConsoleReport("/test/repo", sampleChecks, 0.65, {
+        recursiveScans: [
+          {
+            path: "software",
+            kind: "submodule",
+            result: {
+              checks: sampleChecks,
+              overallScore: 0.58,
+              recursiveScans: [
+                {
+                  path: "harnix",
+                  kind: "submodule",
+                  result: {
+                    checks: sampleChecks,
+                    overallScore: 0.59,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      const calls = logSpy.mock.calls.map(([value]) => value);
+      expect(calls).toContain("- Submodule software: Good (58%)");
+      expect(calls).toContain("- Submodule software/harnix: Good (59%)");
     } finally {
       logSpy.mockRestore();
     }

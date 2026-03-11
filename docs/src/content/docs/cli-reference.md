@@ -65,6 +65,21 @@ harnix scan . --type software
 harnix scan . --type non-software
 ```
 
+### `--depth <n>`
+
+Limit recursive scanning of submodules/workspaces by depth.
+
+- `0` scans only the target repository.
+- `1` scans the target plus direct submodules/workspaces.
+- `2` includes one additional nested level, and so on.
+- If omitted, depth is unlimited (current behavior).
+
+```bash
+harnix scan . --depth 0
+harnix scan . --depth 1
+harnix scan . --depth=2
+```
+
 ## Exit codes
 
 Harnix uses the following exit codes to indicate scan outcomes:

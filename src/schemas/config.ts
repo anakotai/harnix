@@ -5,6 +5,7 @@ export const configSchema = z.object({
   skip: z.array(z.string().min(1)).optional(),
   only: z.array(z.string().min(1)).optional(),
   type: z.enum(["software", "non-software"]).optional(),
+  depth: z.number().int().min(0).optional(),
 }).refine(
   (data) => !(data.skip && data.skip.length > 0 && data.only && data.only.length > 0),
   { message: "skip and only cannot be used together" }

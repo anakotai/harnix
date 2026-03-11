@@ -17,6 +17,7 @@ Create a `.harnix.yaml` file in the root of the repository you want to scan. Har
 | `skip` | `string[]` | Array of check IDs to exclude from the scan. |
 | `only` | `string[]` | Array of check IDs to include exclusively. All other checks are skipped. |
 | `type` | `"software"` or `"non-software"` | Override automatic repository type detection. Controls which checks run based on their `applicableTo` field. |
+| `depth` | `number` | Recursive scan depth for submodules/workspaces (`0` = root only). |
 
 ### Example `.harnix.yaml`
 
@@ -26,6 +27,7 @@ skip:
   - ci-pipeline
   - testing-provision
 type: non-software
+depth: 0
 ```
 
 ### Constraints
@@ -34,6 +36,7 @@ type: non-software
 - **All entries are trimmed and deduplicated.** Leading and trailing whitespace in check IDs is removed, and duplicate entries are silently ignored.
 - **`output` must be a non-empty string.** If provided, Harnix creates the directory if it does not already exist.
 - **`type` must be exactly `"software"` or `"non-software"`.** Any other value produces a validation error.
+- **`depth` must be a non-negative integer.** `0` disables recursive submodule/workspace scans.
 
 ## CLI-vs-config precedence
 
@@ -47,6 +50,7 @@ The resolution rules for each setting are:
 | `skip` | CLI `--skip` overrides config `skip`. If `--only` is present (from CLI or config), `skip` is ignored entirely. |
 | `only` | CLI `--only` overrides config `only`. When `only` is active from any source, `skip` is cleared. |
 | `type` | CLI `--type` overrides config `type`. If neither is set, Harnix auto-detects the repository type by scanning for software signals such as `package.json`, `Cargo.toml`, or `go.mod`. |
+| `depth` | CLI `--depth` overrides config `depth`. If neither is set, recursive scan depth is unlimited. |
 
 ### Precedence example
 
@@ -57,6 +61,7 @@ output: ./reports
 skip:
   - ci-pipeline
 type: software
+depth: 1
 ```
 
 Running `harnix scan . --only agents-md,documentation` would:
@@ -65,6 +70,7 @@ Running `harnix scan . --only agents-md,documentation` would:
 2. Override `skip` — the CLI `--only` takes priority, so `skip` is cleared
 3. Run only `agents-md` and `documentation` checks
 4. Keep `type: software` from the config since no `--type` flag was passed
+5. Keep `depth: 1` from the config since no `--depth` flag was passed
 
 ## No config file
 
@@ -73,5 +79,6 @@ When no `.harnix.yaml` is present, Harnix runs with default behavior:
 - All applicable checks are executed
 - Reports are written to the repository root directory
 - Repository type is auto-detected from file signals
+- Recursive scan depth is unlimited
 
 No error or warning is produced when the config file is absent.

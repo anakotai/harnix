@@ -16,6 +16,7 @@ interface ScanConfig {
   skipIds?: string[];
   onlyIds?: string[];
   repoType?: "software" | "non-software";
+  depth?: number;
 }
 
 function supportsAnsiStyling(): boolean {
@@ -64,6 +65,7 @@ function printScanHelp(): void {
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
   console.log("  --type <type>    Override repo type (software | non-software)");
+  console.log("  --depth <n>      Recursive scan depth for submodules/workspaces (0 = root only)");
   console.log("  --help, -h       Show this help text");
 }
 
@@ -147,6 +149,9 @@ function parseScanConfig(configContent: string, configPath: string): ScanConfig 
   if (config.type) {
     normalizedConfig.repoType = config.type;
   }
+  if (typeof config.depth === "number") {
+    normalizedConfig.depth = config.depth;
+  }
 
   return normalizedConfig;
 }
@@ -186,10 +191,24 @@ function parseRepoType(optionName: string, rawValue: string | undefined): "softw
   return normalized as "software" | "non-software";
 }
 
+function parseDepth(optionName: string, rawValue: string | undefined): number {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+    throw new Error(`Missing value for ${optionName}`);
+  }
+
+  const parsed = Number(rawValue.trim());
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`Invalid value for ${optionName}: ${rawValue}`);
+  }
+
+  return parsed;
+}
+
 interface ParsedScanArgs {
   targetPath: string;
   outputPath?: string;
   repoType?: "software" | "non-software";
+  depth?: number;
   verbose: boolean;
   skipIds: string[];
   onlyIds: string[];
@@ -200,6 +219,7 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
   let hasTargetPath = false;
   let outputPath: string | undefined;
   let repoType: "software" | "non-software" | undefined;
+  let depth: number | undefined;
   let verbose = false;
   const skipIds: string[] = [];
   const onlyIds: string[] = [];
@@ -275,6 +295,19 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
       continue;
     }
 
+    if (argument === "--depth") {
+      const value = args[index + 1];
+      depth = parseDepth("--depth", value);
+      index += 1;
+      continue;
+    }
+
+    if (argument?.startsWith("--depth=")) {
+      const value = argument.slice("--depth=".length);
+      depth = parseDepth("--depth", value);
+      continue;
+    }
+
     if (argument?.startsWith("-")) {
       throw new Error(`Unknown option: ${argument}`);
     }
@@ -298,6 +331,7 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
     targetPath,
     outputPath,
     repoType,
+    depth,
     verbose,
     skipIds: uniqueSkipIds,
     onlyIds: uniqueOnlyIds
@@ -331,7 +365,7 @@ export async function runCli(args: string[]): Promise<void> {
     return;
   }
 
-  const { targetPath, outputPath, repoType, verbose, skipIds, onlyIds } = parseScanArgs(
+  const { targetPath, outputPath, repoType, depth, verbose, skipIds, onlyIds } = parseScanArgs(
     commandArgs
   );
   const resolvedPath = path.resolve(targetPath);
@@ -349,11 +383,13 @@ export async function runCli(args: string[]): Promise<void> {
   const effectiveSkipIds =
     effectiveOnlyIds.length > 0 ? [] : skipIds.length > 0 ? skipIds : (config.skipIds ?? []);
   const effectiveRepoType = repoType ?? config.repoType;
+  const effectiveDepth = depth ?? config.depth;
 
   const result = await scanRepository(resolvedPath, {
     skipIds: effectiveSkipIds,
     onlyIds: effectiveOnlyIds,
-    repoType: effectiveRepoType
+    repoType: effectiveRepoType,
+    maxDepth: effectiveDepth
   });
   printConsoleReport(targetPath, result.checks, result.overallScore, {
     verbose,

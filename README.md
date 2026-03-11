@@ -97,6 +97,7 @@ harnix scan --help     # Show scan-specific help
 | `--skip <id>` | Skip check IDs (comma-separated or repeated) |
 | `--only <id>` | Run only specified check IDs (comma-separated or repeated) |
 | `--type <type>` | Override repo type (`software` or `non-software`) for the scanned root path |
+| `--depth <n>` | Recursive scan depth for submodules/workspaces (`0` = root only, default: unlimited) |
 | `--help`, `-h` | Show scan help text |
 
 When recursive monorepo scanning is enabled (default), submodules and workspaces are auto-detected independently. This is expected behavior (not a scoring issue): a management root override (for example `--type non-software`) does not force child software repos into non-software scoring.
@@ -118,6 +119,10 @@ only:
 
 # Override repo type detection
 type: software
+
+# Optional recursive depth for submodules/workspaces
+# 0 = root only
+depth: 1
 
 # Custom output directory
 output: ./reports

@@ -228,7 +228,7 @@ function topRecommendations(checks: CheckResult[]): RankedRecommendation[] {
 interface RecursiveScanInput {
   kind: "submodule" | "workspace";
   path: string;
-  result?: { overallScore?: number; checks?: unknown[] };
+  result?: { overallScore?: number; checks?: unknown[]; recursiveScans?: RecursiveScanInput[] };
   error?: string;
 }
 
@@ -236,35 +236,52 @@ type RecursiveEntry =
   | { kind: "submodule" | "workspace"; path: string; error: string }
   | { kind: "submodule" | "workspace"; path: string; overallScore: number; overallPercent: number; band: string; checks: number };
 
-function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntry[] {
-  return recursiveScans
-    .map((scan): RecursiveEntry => {
-      if (scan.error || !scan.result || typeof scan.result.overallScore !== "number") {
-        return {
-          kind: scan.kind,
-          path: scan.path,
-          error: scan.error ?? "Scan failed"
-        };
-      }
+function collectRecursiveEntries(
+  recursiveScans: RecursiveScanInput[],
+  parentPath = ""
+): RecursiveEntry[] {
+  const entries: RecursiveEntry[] = [];
 
-      const overallPercent = Math.round(scan.result.overallScore * 100);
-      const checkCount = Array.isArray(scan.result.checks) ? scan.result.checks.length : 0;
-      return {
+  for (const scan of recursiveScans) {
+    const fullPath = parentPath ? `${parentPath}/${scan.path}` : scan.path;
+
+    if (scan.error || !scan.result || typeof scan.result.overallScore !== "number") {
+      entries.push({
         kind: scan.kind,
-        path: scan.path,
-        overallScore: scan.result.overallScore,
-        overallPercent,
-        band: overallBand(overallPercent),
-        checks: checkCount
-      };
-    })
-    .sort((a, b) => {
-      const pathDelta = a.path.localeCompare(b.path);
-      if (pathDelta !== 0) {
-        return pathDelta;
-      }
-      return formatRecursiveKind(a.kind).localeCompare(formatRecursiveKind(b.kind));
+        path: fullPath,
+        error: scan.error ?? "Scan failed"
+      });
+      continue;
+    }
+
+    const overallPercent = Math.round(scan.result.overallScore * 100);
+    const checkCount = Array.isArray(scan.result.checks) ? scan.result.checks.length : 0;
+    entries.push({
+      kind: scan.kind,
+      path: fullPath,
+      overallScore: scan.result.overallScore,
+      overallPercent,
+      band: overallBand(overallPercent),
+      checks: checkCount
     });
+
+    const nestedScans = Array.isArray(scan.result.recursiveScans) ? scan.result.recursiveScans : [];
+    if (nestedScans.length > 0) {
+      entries.push(...collectRecursiveEntries(nestedScans, fullPath));
+    }
+  }
+
+  return entries;
+}
+
+function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntry[] {
+  return collectRecursiveEntries(recursiveScans).sort((a, b) => {
+    const pathDelta = a.path.localeCompare(b.path);
+    if (pathDelta !== 0) {
+      return pathDelta;
+    }
+    return formatRecursiveKind(a.kind).localeCompare(formatRecursiveKind(b.kind));
+  });
 }
 
 export interface ReportOptions {
