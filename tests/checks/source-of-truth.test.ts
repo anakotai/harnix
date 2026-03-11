@@ -63,4 +63,57 @@ describe("source-of-truth check", () => {
     expect(result.score).toBe(0.75);
     expect(result.status).toBe("pass");
   });
+
+  it("ignores archive and legacy directories when detecting violations", async () => {
+    const ctx = makeCtx([
+      "archive/website/astro.config.mjs",
+      "legacy/website/astro.config.mjs",
+      "src/index.ts",
+    ]);
+    const result = await sourceOfTruthCheck(ctx);
+    expect(result.score).toBe(1);
+    expect(result.status).toBe("pass");
+  });
+
+  it("still reports violations for active directories after excluding archive", async () => {
+    const ctx = makeCtx([
+      "archive/website/astro.config.mjs",
+      "website/astro.config.mjs",
+      "demo/astro.config.mjs",
+    ]);
+    const result = await sourceOfTruthCheck(ctx);
+    expect(result.score).toBe(0.75);
+    expect(result.status).toBe("pass");
+    expect(result.summary).toContain("Configuration");
+  });
+
+  it("ignores config duplication when each file is scoped to a different project root", async () => {
+    const ctx = makeCtx([
+      "demo/package.json",
+      "website/package.json",
+      "harnix/docs/package.json",
+      "demo/astro.config.mjs",
+      "website/astro.config.mjs",
+      "harnix/docs/astro.config.mjs",
+      "demo/eslint.config.mjs",
+      "website/eslint.config.mjs",
+    ]);
+    const result = await sourceOfTruthCheck(ctx);
+    expect(result.score).toBe(1);
+    expect(result.status).toBe("pass");
+  });
+
+  it("reports config duplication within the same project root", async () => {
+    const ctx = makeCtx([
+      "apps/web/package.json",
+      "apps/admin/package.json",
+      "apps/web/astro.config.mjs",
+      "apps/web/docs/astro.config.mjs",
+      "apps/admin/astro.config.mjs",
+    ]);
+    const result = await sourceOfTruthCheck(ctx);
+    expect(result.score).toBe(0.75);
+    expect(result.status).toBe("pass");
+    expect(result.summary).toContain("Configuration");
+  });
 });

@@ -173,6 +173,8 @@ Six semantic groups are evaluated for duplication:
 5. **API Specs** — OpenAPI / Swagger definitions
 6. **Database Config** — migration files, schema definitions
 
+Historical snapshots under `archive/` and `legacy/` are excluded from this check. Configuration files are also treated as scoped (not duplicated) when the same filename appears once per project root in a monorepo.
+
 #### Scoring
 
 | Condition | Score |

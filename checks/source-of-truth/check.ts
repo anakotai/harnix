@@ -66,6 +66,90 @@ interface Violation {
   locations: string[];
 }
 
+const SOFTWARE_MARKER_NAMES = new Set(
+  [
+    'package.json',
+    'cargo.toml',
+    'go.mod',
+    'pyproject.toml',
+    'requirements.txt',
+    'gemfile',
+    'pom.xml',
+    'build.gradle',
+    'makefile',
+    'cmakelists.txt',
+    'composer.json',
+  ],
+);
+
+function isExcludedHistoricalPath(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  return /(?:^|\/)(?:archive|legacy)(?:\/|$)/i.test(normalizedPath);
+}
+
+function filterExcludedPaths(files: string[]): string[] {
+  return files.filter((filePath) => !isExcludedHistoricalPath(filePath));
+}
+
+function directoryOf(filePath: string): string {
+  const parts = filePath.split('/');
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : '.';
+}
+
+function collectProjectRoots(files: string[]): string[] {
+  const roots = new Set<string>();
+  for (const filePath of files) {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    const filename = normalizedPath.split('/').pop()?.toLowerCase() ?? '';
+    const isDotnetSolution =
+      filename.endsWith('.sln') || filename.endsWith('.csproj');
+
+    if (SOFTWARE_MARKER_NAMES.has(filename) || isDotnetSolution) {
+      roots.add(directoryOf(normalizedPath));
+    }
+  }
+
+  return Array.from(roots).sort((a, b) => b.length - a.length);
+}
+
+function resolveProjectRootForDirectory(
+  directoryPath: string,
+  projectRoots: string[],
+): string | null {
+  for (const root of projectRoots) {
+    if (root === '.') {
+      if (directoryPath === '.') return root;
+      continue;
+    }
+    if (directoryPath === root || directoryPath.startsWith(`${root}/`)) {
+      return root;
+    }
+  }
+
+  return null;
+}
+
+function isScopedAcrossProjectRoots(
+  directories: string[],
+  projectRoots: string[],
+): boolean {
+  if (directories.length < 2 || projectRoots.length < 2) {
+    return false;
+  }
+
+  const resolvedRoots: string[] = [];
+  for (const directoryPath of directories) {
+    const root = resolveProjectRootForDirectory(directoryPath, projectRoots);
+    if (!root) {
+      return false;
+    }
+    resolvedRoots.push(root);
+  }
+
+  const uniqueRoots = new Set(resolvedRoots);
+  return uniqueRoots.size >= 2 && uniqueRoots.size === directories.length;
+}
+
 function detectDirectoryViolations(files: string[]): Violation[] {
   const normalizedFiles = files.map((f) => f.replace(/\\/g, '/'));
   const violations: Violation[] = [];
@@ -99,6 +183,7 @@ function detectDirectoryViolations(files: string[]): Violation[] {
 
 function detectConfigViolations(files: string[]): Violation | null {
   const normalizedFiles = files.map((f) => f.replace(/\\/g, '/'));
+  const projectRoots = collectProjectRoots(normalizedFiles);
 
   // Find config files at different directory levels
   const configFiles = normalizedFiles.filter((f) =>
@@ -132,17 +217,20 @@ function detectConfigViolations(files: string[]): Violation | null {
 
   const violations: string[] = [];
   for (const [_name, paths] of configGroups) {
-    const dirs = new Set(
-      paths.map((p) => {
-        const parts = p.split('/');
-        return parts.length > 1 ? parts.slice(0, -1).join('/') : '.';
-      }),
-    );
-    if (dirs.size >= 2) {
+    const directories = Array.from(new Set(paths.map((p) => directoryOf(p))));
+    if (
+      directories.length >= 2 &&
+      !isScopedAcrossProjectRoots(directories, projectRoots)
+    ) {
       violations.push(...paths);
     }
   }
-  if (envDirs.size >= 2) {
+
+  const envDirectories = Array.from(envDirs);
+  if (
+    envDirectories.length >= 2 &&
+    !isScopedAcrossProjectRoots(envDirectories, projectRoots)
+  ) {
     violations.push(...envFiles);
   }
 
@@ -203,18 +291,19 @@ function detectDbConfigViolations(files: string[]): Violation | null {
 
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   const { files } = ctx;
+  const activeFiles = filterExcludedPaths(files);
 
   const violations: Violation[] = [
-    ...detectDirectoryViolations(files),
+    ...detectDirectoryViolations(activeFiles),
   ];
 
-  const configViolation = detectConfigViolations(files);
+  const configViolation = detectConfigViolations(activeFiles);
   if (configViolation) violations.push(configViolation);
 
-  const apiViolation = detectApiSpecViolations(files);
+  const apiViolation = detectApiSpecViolations(activeFiles);
   if (apiViolation) violations.push(apiViolation);
 
-  const dbViolation = detectDbConfigViolations(files);
+  const dbViolation = detectDbConfigViolations(activeFiles);
   if (dbViolation) violations.push(dbViolation);
 
   if (violations.length === 0) {
