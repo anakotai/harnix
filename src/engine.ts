@@ -211,7 +211,6 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
     ? await runRecursiveScans(absolutePath, gitInfo, {
         skipIds: options.skipIds,
         onlyIds: options.onlyIds,
-        repoType: options.repoType,
         recursive,
         visitedPaths
       })
@@ -234,7 +233,6 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
 interface RecursiveScanOptions {
   skipIds?: string[];
   onlyIds?: string[];
-  repoType?: "software" | "non-software";
   recursive: boolean;
   visitedPaths: Set<string>;
 }
@@ -275,7 +273,6 @@ async function runRecursiveScans(
       const result = await scanRepository(absoluteChildPath, {
         skipIds: options.skipIds,
         onlyIds: options.onlyIds,
-        repoType: options.repoType,
         recursive: options.recursive,
         _visitedPaths: options.visitedPaths
       });

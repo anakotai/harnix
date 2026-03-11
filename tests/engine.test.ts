@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
+import os from "node:os";
+import { promises as fs } from "node:fs";
 import { tierWeight, TIER_WEIGHTS, scanRepository } from "../src/engine.js";
 
 const FIXTURES = path.resolve(import.meta.dirname!, "fixtures");
@@ -53,6 +55,34 @@ describe("scanRepository", () => {
     });
     expect(result.checks.find((c) => c.id === "agents-md")).toBeUndefined();
     expect(result.checks.length).toBe(6);
+  });
+
+  it("applies repo type override to root scan only", async () => {
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-recursive-type-"));
+    const submodulePath = path.join(rootDir, "software");
+
+    try {
+      await fs.writeFile(
+        path.join(rootDir, ".gitmodules"),
+        ['[submodule "software"]', "\tpath = software", "\turl = https://example.invalid/software.git"].join("\n"),
+        "utf8",
+      );
+      await fs.writeFile(path.join(rootDir, "README.md"), "# Root\n", "utf8");
+
+      await fs.mkdir(submodulePath, { recursive: true });
+      await fs.writeFile(path.join(submodulePath, "package.json"), '{ "name": "submodule-software" }\n', "utf8");
+      await fs.writeFile(path.join(submodulePath, "README.md"), "# Software\n", "utf8");
+
+      const result = await scanRepository(rootDir, {
+        repoType: "non-software",
+      });
+
+      expect(result.repoType).toBe("non-software");
+      const softwareSubmodule = result.recursiveScans.find((scan) => scan.path === "software");
+      expect(softwareSubmodule?.result?.repoType).toBe("software");
+    } finally {
+      await fs.rm(rootDir, { recursive: true, force: true });
+    }
   });
 });
 
