@@ -11,7 +11,7 @@ import {
 const sampleChecks: CheckResult[] = [
   {
     id: "agents-md",
-    name: "Agent guidance",
+    name: "Agents guidance",
     category: "agent-readiness",
     tier: "critical",
     score: 1,

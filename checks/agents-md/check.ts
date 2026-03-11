@@ -100,7 +100,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
   if (!hasAgents && !hasClaude) {
     return {
       id: 'agents-md',
-      name: 'Agent guidance',
+      name: 'Agents guidance',
       category: 'agent-readiness',
       tier: 'critical',
       score: 0,
@@ -125,7 +125,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
     const message = error instanceof Error ? error.message : String(error);
     return {
       id: 'agents-md',
-      name: 'Agent guidance',
+      name: 'Agents guidance',
       category: 'agent-readiness',
       tier: 'critical',
       score: 0.1,
@@ -149,7 +149,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
 
   return {
     id: 'agents-md',
-    name: 'Agent guidance',
+    name: 'Agents guidance',
     category: 'agent-readiness',
     tier: 'critical',
     score,

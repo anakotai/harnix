@@ -9,7 +9,7 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 
 | Name | Check ID | Category | Tier | Applies to |
 |---|---|---|---|---|
-| [Agent guidance](#agent-guidance) | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Agents guidance](#agents-guidance) | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Agent skills](#agent-skills) | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
@@ -19,7 +19,7 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 
 ## Check details
 
-### Agent guidance
+### Agents guidance
 
 <div class="check-detail-meta">
   <span class="check-badge check-badge--category">agent-readiness</span>

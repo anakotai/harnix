@@ -37,7 +37,7 @@ Harness Readiness Report: .
 Overall: Good (64%)
 
 ✓ Agent skills       100%  Found 1 skill(s): 1 compliant, 0 security flag(s)
-✓ Agent guidance      80%  AGENTS.md has brief guidance
+✓ Agents guidance     80%  AGENTS.md has brief guidance
 ✗ CI pipeline          0%  No CI/CD configuration detected
 ✗ Documentation       20%  No README.md found
 ✓ Repo structure      75%  Source organized in src
@@ -174,7 +174,7 @@ Harnix ships with 7 MVP checks:
 
 | ID | Name | Category | Tier | Description |
 |---|---|---|---|---|
-| `agents-md` | Agent guidance | Agent Readiness | Critical | Detects AGENTS.md or CLAUDE.md; scores content length and substance |
+| `agents-md` | Agents guidance | Agent Readiness | Critical | Detects AGENTS.md or CLAUDE.md; scores content length and substance |
 | `documentation` | Documentation | Documentation | Critical | Checks for substantive README.md and docs/prds directories |
 | `agent-skills` | Agent skills | Agent Readiness | Important | Detects skills in supported roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`), validates SKILL.md frontmatter, flags commented-out code |
 | `ci-pipeline` | CI pipeline | Quality Gates | Important | Detects CI/CD config for GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis, Azure Pipelines |
