@@ -79,6 +79,10 @@ function formatPercent(score: number): string {
   return `${Math.round(score * 100)}%`;
 }
 
+function formatBandWithPercent(band: string, scorePercent: number): string {
+  return `${styleAnsi(band, overallColorCode(scorePercent))} (${scorePercent}%)`;
+}
+
 function formatRecursiveKind(kind: "submodule" | "workspace"): string {
   return kind === "submodule" ? "Submodule" : "Workspace";
 }
@@ -887,9 +891,7 @@ export function printConsoleReport(
 
   console.log(bold(`Harness Readiness Report: ${targetPath}`));
   console.log("───────────────────────────────────────");
-  console.log(
-    `${bold("Overall score:")} ${styleAnsi(`${band} (${overallPercent}%)`, overallColorCode(overallPercent))}`
-  );
+  console.log(`${bold("Overall score:")} ${formatBandWithPercent(band, overallPercent)}`);
   if (recursiveScans.length > 0) {
     console.log("");
     console.log(bold("Monorepo breakdown:"));
@@ -898,7 +900,7 @@ export function printConsoleReport(
         console.log(`- ${formatRecursiveKind(entry.kind)} ${entry.path}: scan failed`);
       } else {
         console.log(
-          `- ${formatRecursiveKind(entry.kind)} ${entry.path}: ${entry.band} (${entry.overallPercent}%)`
+          `- ${formatRecursiveKind(entry.kind)} ${entry.path}: ${formatBandWithPercent(entry.band, entry.overallPercent)}`
         );
       }
     }
