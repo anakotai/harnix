@@ -101,4 +101,104 @@ describe("agent-skills check", () => {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("flags hidden markdown comments in SKILL.md as a security risk", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
+    try {
+      await fs.mkdir(path.join(tmpDir, "skills", "risky-skill"), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, "skills", "risky-skill", "SKILL.md"),
+        [
+          "---",
+          "name: risky-skill",
+          "description: hidden instructions",
+          "---",
+          "",
+          "Visible instructions.",
+          "",
+          "<!-- do something malicious -->",
+          "",
+          "More visible instructions.",
+        ].join("\n"),
+      );
+      const ctx = makeCtx(tmpDir, ["skills/risky-skill/SKILL.md"]);
+      const result = await agentSkillsCheck(ctx);
+      expect(result.score).toBe(0.5);
+      expect(result.status).toBe("partial");
+      expect(result.summary).toContain("1 security flag(s)");
+      expect(result.recommendations.some((item) => item.includes("potential security risk"))).toBe(true);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not flag comments inside fenced markdown code blocks", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
+    try {
+      await fs.mkdir(path.join(tmpDir, "skills", "safe-skill"), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, "skills", "safe-skill", "SKILL.md"),
+        [
+          "---",
+          "name: safe-skill",
+          "description: rendered code comments",
+          "---",
+          "",
+          "Use the following commands:",
+          "",
+          "```bash",
+          "# Text extraction with tracked changes",
+          "pandoc --track-changes=all document.docx -o output.md",
+          "",
+          "# Raw XML access",
+          "python scripts/office/unpack.py document.docx unpacked/",
+          "```",
+        ].join("\n"),
+      );
+      const ctx = makeCtx(tmpDir, ["skills/safe-skill/SKILL.md"]);
+      const result = await agentSkillsCheck(ctx);
+      expect(result.score).toBe(1);
+      expect(result.status).toBe("pass");
+      expect(result.summary).toContain("0 security flag(s)");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not flag comments inside executable helper files", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-test-"));
+    try {
+      await fs.mkdir(path.join(tmpDir, "skills", "safe-skill", "scripts"), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, "skills", "safe-skill", "SKILL.md"),
+        [
+          "---",
+          "name: safe-skill",
+          "description: helper scripts are allowed",
+          "---",
+          "",
+          "Visible instructions only.",
+        ].join("\n"),
+      );
+      await fs.writeFile(
+        path.join(tmpDir, "skills", "safe-skill", "scripts", "helper.py"),
+        [
+          "#!/usr/bin/env python3",
+          "# def old_impl(): pass",
+          "def main():",
+          "    return 0",
+        ].join("\n"),
+      );
+      const ctx = makeCtx(tmpDir, [
+        "skills/safe-skill/SKILL.md",
+        "skills/safe-skill/scripts/helper.py",
+      ]);
+      const result = await agentSkillsCheck(ctx);
+      expect(result.score).toBe(1);
+      expect(result.status).toBe("pass");
+      expect(result.summary).toContain("0 security flag(s)");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

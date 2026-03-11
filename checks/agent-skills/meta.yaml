@@ -5,8 +5,8 @@ tier: important
 description: >-
   Detects skills in supported roots (skills/, .skills/, .claude/skills/,
   .codex/skills/, .agent/skills/, .github/skills/), validates frontmatter and
-  structure against the Agent Skills specification, and flags commented-out
-  code as a security risk.
+  structure against the Agent Skills specification, and flags hidden Markdown
+  comments in SKILL.md as a security risk.
 tags:
   - agents
   - skills

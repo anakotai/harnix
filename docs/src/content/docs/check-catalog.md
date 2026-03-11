@@ -55,14 +55,14 @@ Detects whether the repository provides agent guidance via a root-level `AGENTS.
   <span class="check-badge check-badge--scope">all repositories</span>
 </div>
 
-Detects skills in supported roots and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Commented-out code within skill files is flagged as a security risk.
+Detects skills in supported roots and validates that each skill conforms to the Agent Skills specification. Skills must contain a `SKILL.md` file with proper frontmatter and body content. Hidden Markdown comments in `SKILL.md` are flagged as a security risk because they are not visibly rendered to the reader.
 
 #### What it checks
 
 - Presence of skill roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`)
 - Each skill has a valid `SKILL.md` with frontmatter and body content
 - Subdirectories are restricted to `scripts/`, `references/`, and `assets/`
-- Commented-out code patterns (flagged as security risk)
+- Hidden Markdown comments in `SKILL.md` outside fenced code blocks (flagged as security risk)
 
 #### Scoring
 
@@ -70,8 +70,8 @@ Detects skills in supported roots and validates that each skill conforms to the 
 |---|---|
 | No skill directories found | 0 |
 | Skills found with mixed compliance and no security flags | 0.5–0.8 |
-| All skills compliant, no commented-out code | 1.0 |
-| Commented-out code detected | Penalty applied (reduces score) |
+| All skills compliant, no hidden Markdown comments | 1.0 |
+| Hidden Markdown comments detected | Penalty applied (reduces score) |
 
 The score is 0 when no skill directories are found, and ranges from 0.2 to 1.0 based on the ratio of compliant skills and the absence of security violations.
 

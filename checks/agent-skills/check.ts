@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { ScanContext, CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
-  'Well-structured agent skills enable predictable autonomous workflows. Skills directories with valid frontmatter and no commented-out code reduce security risk and improve agent reliability.';
+  'Well-structured agent skills enable predictable autonomous workflows. Skills directories with valid frontmatter and no hidden Markdown instructions reduce security risk and improve agent reliability.';
 
 const SKILL_ROOT_DIRS = [
   'skills',
@@ -14,11 +14,7 @@ const SKILL_ROOT_DIRS = [
   '.github/skills',
 ];
 const VALID_OPTIONAL_DIRS = new Set(['scripts', 'references', 'assets']);
-const COMMENTED_CODE_PATTERNS = [
-  /\/\/\s*(import|export|const|let|var|function|class|return|if|for|while)\b/,
-  /#\s*(import|def|class|return|if|for|while)\b/,
-  /\/\*[\s\S]*?\b(function|class|return|import)\b[\s\S]*?\*\//,
-];
+const HIDDEN_MARKDOWN_COMMENT_PATTERN = /<!--[\s\S]*?-->/;
 
 function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
   const percent = Math.round(score * 100);
@@ -33,7 +29,32 @@ interface SkillValidation {
   hasFrontmatter: boolean;
   hasBody: boolean;
   invalidDirs: string[];
-  hasCommentedCode: boolean;
+  hasHiddenMarkdownComment: boolean;
+}
+
+function stripFencedCodeBlocks(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const visibleLines: string[] = [];
+  let activeFence: string | null = null;
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+    if (fenceMatch) {
+      const fence = fenceMatch[1];
+      if (activeFence === null) {
+        activeFence = fence[0];
+      } else if (activeFence === fence[0]) {
+        activeFence = null;
+      }
+      continue;
+    }
+
+    if (activeFence === null) {
+      visibleLines.push(line);
+    }
+  }
+
+  return visibleLines.join('\n');
 }
 
 async function findSkillDirs(
@@ -81,7 +102,7 @@ async function validateSkill(
 
   let hasFrontmatter = false;
   let hasBody = false;
-  let hasCommentedCode = false;
+  let hasHiddenMarkdownComment = false;
 
   if (hasSkillMd) {
     try {
@@ -95,6 +116,8 @@ async function validateSkill(
         ? content.slice(content.indexOf('---', 3) + 3).trim()
         : content.trim();
       hasBody = bodyContent.length > 0;
+      const visibleMarkdown = stripFencedCodeBlocks(content);
+      hasHiddenMarkdownComment = HIDDEN_MARKDOWN_COMMENT_PATTERN.test(visibleMarkdown);
     } catch {
       // File exists in listing but unreadable
     }
@@ -113,32 +136,13 @@ async function validateSkill(
     (d) => !VALID_OPTIONAL_DIRS.has(d),
   );
 
-  // Security check: look for commented-out code in skill files
-  for (const f of skillFiles) {
-    if (f.endsWith('.md') || f.endsWith('.yaml') || f.endsWith('.yml')) {
-      continue;
-    }
-    try {
-      const content = await fs.readFile(path.join(rootPath, f), 'utf8');
-      for (const pattern of COMMENTED_CODE_PATTERNS) {
-        if (pattern.test(content)) {
-          hasCommentedCode = true;
-          break;
-        }
-      }
-    } catch {
-      // Skip unreadable files
-    }
-    if (hasCommentedCode) break;
-  }
-
   return {
     path: skillPath,
     hasSkillMd,
     hasFrontmatter,
     hasBody,
     invalidDirs,
-    hasCommentedCode,
+    hasHiddenMarkdownComment,
   };
 }
 
@@ -180,7 +184,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
       v.hasBody &&
       v.invalidDirs.length === 0,
   );
-  const securityFlags = validations.filter((v) => v.hasCommentedCode);
+  const securityFlags = validations.filter((v) => v.hasHiddenMarkdownComment);
 
   let score: number;
   if (
@@ -216,7 +220,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
   }
   if (securityFlags.length > 0) {
     recommendations.push(
-      `Review ${securityFlags.length} skill(s) with commented-out code (potential security risk): ${securityFlags.map((v) => v.path).join(', ')}.`,
+      `Review ${securityFlags.length} skill(s) with hidden Markdown comments (potential security risk): ${securityFlags.map((v) => v.path).join(', ')}.`,
     );
   }
   if (recommendations.length === 0) {
@@ -235,7 +239,7 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
     score,
     status: statusFromScore(score),
     summary: `Found ${totalSkills} skill(s): ${compliant.length} compliant, ${securityFlags.length} security flag(s)`,
-    details: `Detected ${totalSkills} skill(s) across ${skillGroups.length} skills director${skillGroups.length === 1 ? 'y' : 'ies'}. ${compliant.length} fully compliant with Agent Skills spec. ${securityFlags.length} flagged for commented-out code.`,
+    details: `Detected ${totalSkills} skill(s) across ${skillGroups.length} skills director${skillGroups.length === 1 ? 'y' : 'ies'}. ${compliant.length} fully compliant with Agent Skills spec. ${securityFlags.length} flagged for hidden Markdown comments.`,
     recommendations,
     references,
     whyThisMatters: WHY_THIS_MATTERS,
