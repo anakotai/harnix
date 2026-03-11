@@ -891,7 +891,8 @@ export function printConsoleReport(
     `${bold("Overall score:")} ${styleAnsi(`${band} (${overallPercent}%)`, overallColorCode(overallPercent))}`
   );
   if (recursiveScans.length > 0) {
-    console.log("Monorepo breakdown:");
+    console.log("");
+    console.log(bold("Monorepo breakdown:"));
     for (const entry of recursiveScans) {
       if ("error" in entry) {
         console.log(`- ${formatRecursiveKind(entry.kind)} ${entry.path}: scan failed`);

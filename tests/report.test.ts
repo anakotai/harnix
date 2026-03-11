@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { CheckResult } from "../src/types.js";
 import {
   overallBand,
@@ -100,5 +100,31 @@ describe("buildHtmlReport", () => {
 describe("printConsoleReport", () => {
   it("does not throw for valid input", () => {
     expect(() => printConsoleReport("/test/repo", sampleChecks, 0.65)).not.toThrow();
+  });
+
+  it("adds a blank line and bold heading before monorepo breakdown output", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    try {
+      printConsoleReport("/test/repo", sampleChecks, 0.65, {
+        recursiveScans: [
+          {
+            path: "packages/app",
+            kind: "workspace",
+            checks: sampleChecks,
+            overallScore: 0.8,
+          },
+        ],
+      });
+
+      const calls = logSpy.mock.calls.map(([value]) => value);
+      const headingIndex = calls.findIndex((value) => typeof value === "string" && value.includes("Monorepo breakdown:"));
+
+      expect(headingIndex).toBeGreaterThan(0);
+      expect(calls[headingIndex - 1]).toBe("");
+      expect(calls[headingIndex]).toContain("Monorepo breakdown:");
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });
