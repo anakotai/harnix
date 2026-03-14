@@ -6,10 +6,18 @@
   "bin": {
     "harnix": "bin/harnix.js"
   },
+  "files": [
+    "bin",
+    "checks/**/meta.yaml",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "lint": "eslint .",
+    "prepack": "npm run build",
     "scan": "node bin/harnix.js scan .",
     "test": "vitest run"
   },
@@ -17,6 +25,13 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anakotai/harnix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anakotai/harnix/issues"
   },
   "engines": {
     "node": ">=20.11.0"

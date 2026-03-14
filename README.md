@@ -77,6 +77,14 @@ npm run build
 node bin/harnix.js scan /path/to/repo
 ```
 
+## Distribution
+
+Harnix is distributed via the public npm registry as `harnix`.
+
+- **npm registry** is the installation source (`npx harnix`, `npm install -g harnix`)
+- **GitHub Releases** mirror tagged versions and release notes
+- **GitHub Packages** is not used for Harnix distribution
+
 ## Usage
 
 ### Commands

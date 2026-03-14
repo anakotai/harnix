@@ -219,6 +219,29 @@ npm run build    # Compile TypeScript
 npm test         # Run tests
 ```
 
+## Releases
+
+Harnix releases are tag-driven and publish to the public npm registry.
+
+### One-time setup
+
+- Add the repository secret `NPM_TOKEN` from the `anakot-ci` npm account.
+- The `anakot-ci` account must remain the npm owner/publisher for the unscoped `harnix` package.
+
+### Release flow
+
+1. Update `package.json` to the target semantic version.
+2. Commit the version change to `main`.
+3. Create an annotated tag that matches the package version exactly, for example `v0.18.0`.
+4. Push `main` and the tag to GitHub.
+5. GitHub Actions runs `.github/workflows/release.yml`, verifies the tag/version match, publishes to npm, and creates the matching GitHub Release.
+
+### Rules
+
+- The tag must point at the current `main` HEAD.
+- The tag must equal `v${package.json version}`.
+- Published versions are immutable on npm, so reusing a version number is not possible.
+
 ## License
 
 By contributing to Harnix, you agree that your contributions will be licensed under the [Apache 2.0 License](LICENSE).
