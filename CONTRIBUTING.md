@@ -227,6 +227,7 @@ Harnix releases are tag-driven and publish to the public npm registry.
 
 - In npm package settings for `harnix`, add a Trusted Publisher for GitHub Actions.
 - Configure it with GitHub owner `anakotai`, repository `harnix`, workflow filename `release.yml`, and no environment unless release protection later requires one.
+- The release workflow upgrades `npm` before publishing because npm Trusted Publishing requires a newer npm CLI than the GitHub runner default.
 
 ### Release flow
 
