@@ -225,8 +225,8 @@ Harnix releases are tag-driven and publish to the public npm registry.
 
 ### One-time setup
 
-- Add the repository secret `NPM_TOKEN` from the `anakot-ci` npm account.
-- The `anakot-ci` account must remain the npm owner/publisher for the unscoped `harnix` package.
+- In npm package settings for `harnix`, add a Trusted Publisher for GitHub Actions.
+- Configure it with GitHub owner `anakotai`, repository `harnix`, workflow filename `release.yml`, and no environment unless release protection later requires one.
 
 ### Release flow
 
@@ -241,6 +241,7 @@ Harnix releases are tag-driven and publish to the public npm registry.
 - The tag must point at the current `main` HEAD.
 - The tag must equal `v${package.json version}`.
 - Published versions are immutable on npm, so reusing a version number is not possible.
+- The workflow uses npm Trusted Publishing, so no long-lived npm token is required after setup.
 
 ## License
 
