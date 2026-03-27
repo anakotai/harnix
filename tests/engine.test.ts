@@ -28,11 +28,11 @@ describe("tierWeight", () => {
 });
 
 describe("scanRepository", () => {
-  it("discovers and runs all 7 checks on a fixture repo", async () => {
+  it("discovers and runs all 8 checks on a fixture repo", async () => {
     const result = await scanRepository(path.join(FIXTURES, "pass-all"), {
       recursive: false,
     });
-    expect(result.checks.length).toBe(7);
+    expect(result.checks.length).toBe(8);
     expect(result.overallScore).toBeGreaterThan(0);
     expect(result.overallScore).toBeLessThanOrEqual(1);
     expect(result.repoType).toBe("software");
@@ -40,12 +40,12 @@ describe("scanRepository", () => {
 
   it("applies --only filter to limit checks", async () => {
     const result = await scanRepository(path.join(FIXTURES, "pass-all"), {
-      onlyIds: ["agents-md", "documentation"],
+      onlyIds: ["agents-md", "documentation", "root-readme"],
       recursive: false,
     });
-    expect(result.checks.length).toBe(2);
+    expect(result.checks.length).toBe(3);
     const ids = result.checks.map((c) => c.id).sort();
-    expect(ids).toEqual(["agents-md", "documentation"]);
+    expect(ids).toEqual(["agents-md", "documentation", "root-readme"]);
   });
 
   it("applies --skip filter to exclude checks", async () => {
@@ -54,7 +54,7 @@ describe("scanRepository", () => {
       recursive: false,
     });
     expect(result.checks.find((c) => c.id === "agents-md")).toBeUndefined();
-    expect(result.checks.length).toBe(6);
+    expect(result.checks.length).toBe(7);
   });
 
   it("applies repo type override to root scan only", async () => {

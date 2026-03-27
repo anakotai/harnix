@@ -64,11 +64,11 @@ type: software
 depth: 1
 ```
 
-Running `harnix scan . --only agents-md,documentation` would:
+Running `harnix scan . --only agents-md,root-readme,documentation` would:
 
 1. Ignore the `output` config — no `--output` flag, so config value `./reports` is used
 2. Override `skip` — the CLI `--only` takes priority, so `skip` is cleared
-3. Run only `agents-md` and `documentation` checks
+3. Run only `agents-md`, `root-readme`, and `documentation` checks
 4. Keep `type: software` from the config since no `--type` flag was passed
 5. Keep `depth: 1` from the config since no `--depth` flag was passed
 

@@ -1,14 +1,15 @@
 id: documentation
 name: Documentation
 category: documentation
-tier: critical
+tier: important
 description: >-
-  Checks for a substantive README.md and supporting documentation
-  directories (docs/, prds/). Scores based on README length, presence of
-  docs directories, and content quality signals.
+  Checks for durable documentation roots such as docs/, specs/, and
+  prds/, and scores whether those roots contain substantive
+  documentation files.
 tags:
-  - readme
   - docs
+  - specs
+  - prds
   - documentation
   - onboarding
 applicableTo: all

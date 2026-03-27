@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 7 MVP checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 8 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 7 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
+Harnix ships with 8 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
 
 ## Active checks
 
@@ -12,7 +12,8 @@ Harnix ships with 7 built-in checks grouped into 6 categories. Each check produc
 | [Agents guidance](#agents-guidance) | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Agent skills](#agent-skills) | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
-| [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Root README](#root-readme) | `root-readme` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Source of truth](#source-of-truth) | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
@@ -96,7 +97,7 @@ Detects whether the repository has a CI/CD pipeline configured. Supports GitHub 
 | No CI configuration detected | 0 |
 | At least one CI system detected | 1.0 |
 
-### Documentation
+### Root README
 
 <div class="check-detail-meta">
   <span class="check-badge check-badge--category">documentation</span>
@@ -104,23 +105,51 @@ Detects whether the repository has a CI/CD pipeline configured. Supports GitHub 
   <span class="check-badge check-badge--scope">all repositories</span>
 </div>
 
-Checks for a substantive `README.md` and supporting documentation directories. Repositories with both a well-written README and a durable docs structure score highest.
+Checks for a substantive root `README.md` or `README.txt` file. The root README should be the fastest onboarding artifact in the repository and cover how to get started, how to run the project, and how to verify changes.
 
 #### What it checks
 
-- Presence and length of `README.md` at the repository root
-- Presence of documentation directories (`docs/` or `prds/`)
+- Presence of `README.md` or `README.txt` at the repository root
+- Whether the README has substantive body content instead of a placeholder heading
+- Whether the README includes setup, usage, and testing or troubleshooting guidance
 
 #### Scoring
 
 | Condition | Score |
 |---|---|
-| No README found | 0.2 |
-| Brief README (< 120 characters) | 0.3 base |
-| Substantive README (≥ 120 characters) | 0.6 base |
-| `docs/` or `prds/` directory exists | +0.4 bonus |
+| No supported root README found | 0 |
+| Root README exists but is only a placeholder | 0.3 |
+| Substantive root README | +0.4 |
+| Setup/install guidance detected | +0.1 |
+| Usage/run guidance detected | +0.1 |
+| Testing/troubleshooting guidance detected | +0.1 |
 
-The base and bonus are summed, capped at 1.0.
+The components are summed and capped at 1.0.
+
+### Documentation
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+Checks for durable documentation roots such as `docs/`, `specs/`, and `prds/`. This check focuses on whether the repository has a canonical long-form documentation layer, separate from the root README.
+
+#### What it checks
+
+- Presence of supported documentation roots: `docs/`, `specs/`, `prds/`
+- Whether those roots contain supported documentation files (`.md`, `.mdx`, `.txt`, `.rst`, `.adoc`, `.yaml`, `.yml`, `.json`, `.toml`)
+- Whether at least one matched documentation file contains substantive content
+
+#### Scoring
+
+| Condition | Score |
+|---|---|
+| No supported documentation roots found | 0 |
+| Documentation roots exist but contain no supported documentation files | 0.2 |
+| Documentation roots exist but only placeholder docs were detected | 0.4 |
+| At least one substantive doc exists under `docs/`, `specs/`, or `prds/` | 1.0 |
 
 ### Repo structure
 
@@ -220,6 +249,6 @@ Use check IDs with CLI flags to run or skip specific checks:
 ```bash
 harnix scan . --only agents-md
 harnix scan . --skip ci-pipeline
-harnix scan . --only agents-md,documentation
+harnix scan . --only agents-md,root-readme,documentation
 harnix scan . --skip repo-structure,source-of-truth
 ```

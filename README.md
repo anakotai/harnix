@@ -34,19 +34,20 @@ Sample output:
 ```
 Harness Readiness Report: .
 ───────────────────────────────────────
-Overall: Good (64%)
+Overall: Good (53%)
 
 ✓ Agent skills       100%  Found 1 skill(s): 1 compliant, 0 security flag(s)
 ✓ Agents guidance     80%  AGENTS.md has brief guidance
 ✗ CI pipeline          0%  No CI/CD configuration detected
-✗ Documentation       20%  No README.md found
+✗ Documentation        0%  No docs/, specs/, or prds/ content found
 ✓ Repo structure      75%  Source organized in src
+✗ Root README         0%  No root README.md or README.txt found
 ✓ Source of truth    100%  No single source of truth violations detected
 ✓ Testing provision   85%  Tests exist but testing documentation is missing
 
 Top recommendations:
-1. Add a substantive README.md with project purpose, setup steps, and usage examples.
-2. Expand AGENTS.md with concrete build, test, and module-specific workflow instructions.
+1. Add a substantive root README.md or README.txt with project purpose, setup steps, usage examples, and verification guidance.
+2. Add a docs/, specs/, or prds/ directory for durable project documentation.
 3. Add a CI pipeline (for example GitHub Actions) to automate lint, test, and build checks.
 ```
 
@@ -123,6 +124,7 @@ skip:
 # Or run only specific checks (mutually exclusive with skip)
 only:
   - agents-md
+  - root-readme
   - documentation
 
 # Override repo type detection
@@ -185,14 +187,15 @@ Checks are grouped by category, and each category's score is also calculated usi
 
 ## Check Catalog
 
-Harnix ships with 7 MVP checks:
+Harnix ships with 8 built-in checks:
 
 | ID | Name | Category | Tier | Description |
 |---|---|---|---|---|
 | `agents-md` | Agents guidance | Agent Readiness | Critical | Detects AGENTS.md or CLAUDE.md; scores content length and substance |
-| `documentation` | Documentation | Documentation | Critical | Checks for substantive README.md and docs/prds directories |
 | `agent-skills` | Agent skills | Agent Readiness | Important | Detects skills in supported roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`), validates SKILL.md frontmatter, flags hidden Markdown comments |
 | `ci-pipeline` | CI pipeline | Quality Gates | Important | Detects CI/CD config for GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis, Azure Pipelines |
+| `root-readme` | Root README | Documentation | Critical | Checks for a substantive root README.md or README.txt with onboarding guidance |
+| `documentation` | Documentation | Documentation | Important | Checks for durable documentation roots such as docs/, specs/, and prds/ |
 | `repo-structure` | Repo structure | Infrastructure | Important | Detects monorepo/submodule setup, source organization, root file ratio |
 | `source-of-truth` | Source of truth | Organization | Important | Flags single-source-of-truth violations across 6 semantic groups |
 | `testing-provision` | Testing provision | Quality | Important | Detects test files/directories, test isolation, and testing documentation |

@@ -1,0 +1,14 @@
+id: root-readme
+name: Root README
+category: documentation
+tier: critical
+description: >-
+  Checks for a substantive root README.md or README.txt file and scores
+  whether it includes core onboarding guidance such as setup, usage, and
+  testing or troubleshooting information.
+tags:
+  - readme
+  - onboarding
+  - documentation
+  - setup
+applicableTo: all

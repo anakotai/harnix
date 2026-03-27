@@ -1,406 +1,146 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import type { ScanContext, CheckResult } from "../../src/types.js";
+import {
+  DOC_EXTENSIONS,
+  hasSubstantiveDocContent,
+  normalizePath,
+  uniqueSorted,
+} from "../../src/documentation-utils.js";
 
 const WHY_THIS_MATTERS =
-  'Shared documentation keeps onboarding predictable and reduces repeated clarification work across humans and agents. Keep README and docs updated with setup, run, and troubleshooting steps.';
+  "Durable documentation roots keep reference material discoverable instead of burying it in ad hoc files. Repositories should have a canonical place for product, technical, or process documentation.";
 
-const REQUIRED_WEIGHT = 3;
-const OPTIONAL_WEIGHT = 1;
+const DOC_ROOTS = ["docs", "specs", "prds"] as const;
 const MAX_REFERENCE_COUNT = 20;
 
-const DOC_EXTENSIONS = new Set([
-  '.md',
-  '.mdx',
-  '.txt',
-  '.rst',
-  '.adoc',
-  '.yaml',
-  '.yml',
-  '.json',
-  '.toml',
-]);
-
-interface Signal {
-  id: string;
-  label: string;
-  required: boolean;
-  patterns: RegExp[];
-  recommendation: string;
-}
-
-const REQUIRED_SIGNALS: Signal[] = [
-  {
-    id: 'docs-structure',
-    label: 'docs/prds directory',
-    required: true,
-    patterns: [/^docs\//i, /^prds\//i],
-    recommendation:
-      'Add a docs/ or prds/ directory for durable product, architecture, and process documentation.',
-  },
-  {
-    id: 'styling-brand',
-    label: 'styling/brand guide',
-    required: true,
-    patterns: [
-      /(^|\/)(styling|brand|design)(\/|[-_.])/i,
-      /(^|\/)(style-guide|brand-guide|design-guide)(\/|[-_.])/i,
-    ],
-    recommendation:
-      'Add styling/brand documentation (for example docs/styling/guide.md or docs/brand.md).',
-  },
-  {
-    id: 'adr-architecture',
-    label: 'ADR/architecture docs',
-    required: true,
-    patterns: [
-      /(^|\/)(adr|adrs|architecture|decisions)(\/|[-_.])/i,
-      /(^|\/)docs\/decisions(\/|[-_.])/i,
-    ],
-    recommendation:
-      'Add architecture decision records or architecture docs (for example docs/decisions/ or docs/architecture/).',
-  },
-  {
-    id: 'infra-environment',
-    label: 'infrastructure/environment docs',
-    required: true,
-    patterns: [/(^|\/)(infra|infrastructure|environment|tooling)(\/|[-_.])/i],
-    recommendation:
-      'Add infrastructure/environment/tooling documentation (for example docs/infrastructure.md or docs/tooling.md).',
-  },
-  {
-    id: 'deployment',
-    label: 'deployment/ops docs',
-    required: true,
-    patterns: [/(^|\/)(deploy|deployment|ops)(\/|[-_.])/i],
-    recommendation:
-      'Add deployment/operations documentation (for example docs/deployment.md or docs/ops.md).',
-  },
-];
-
-const OPTIONAL_SIGNALS: Signal[] = [
-  {
-    id: 'pitch-deck',
-    label: 'pitch/deck docs',
-    required: false,
-    patterns: [/(^|\/)(pitch|deck)(\/|[-_.])/i],
-    recommendation:
-      'Optional: add pitch/deck documentation for product and sales alignment.',
-  },
-  {
-    id: 'company-profile',
-    label: 'company/profile docs',
-    required: false,
-    patterns: [/(^|\/)(company|profile)(\/|[-_.])/i],
-    recommendation:
-      'Optional: add company/profile documentation for cross-functional onboarding.',
-  },
-  {
-    id: 'tech-stack',
-    label: 'tech stack docs',
-    required: false,
-    patterns: [
-      /(^|\/)(tech|stack)(\/|[-_.])/i,
-      /(^|\/)tech-stack(\/|[-_.])/i,
-    ],
-    recommendation:
-      'Optional: add a tech stack document describing key frameworks and infrastructure choices.',
-  },
-  {
-    id: 'api-docs',
-    label: 'API docs',
-    required: false,
-    patterns: [/(^|\/)(api|swagger|openapi)(\/|[-_.])/i],
-    recommendation:
-      'Optional: add API documentation (OpenAPI/Swagger specs or API reference docs).',
-  },
-  {
-    id: 'database-schema',
-    label: 'database schema docs',
-    required: false,
-    patterns: [/(^|\/)(db|schema|database)(\/|[-_.])/i],
-    recommendation:
-      'Optional: add database/schema documentation to reduce data-model ambiguity.',
-  },
-];
-
-interface SignalResult {
-  signal: Signal;
-  matched: boolean;
-  matches: string[];
-}
-
-function normalizePath(filePath: string): string {
-  return filePath.replace(/\\/g, '/');
-}
-
-function uniqueSorted(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-}
-
-function hasSubstantiveDocContent(content: string): boolean {
-  const trimmed = content.trim();
-  if (trimmed.length === 0) return false;
-
-  const withoutFrontmatter = trimmed.replace(/^---[\s\S]*?---\s*/m, '');
-  const lines = withoutFrontmatter
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length === 0) return false;
-
-  const nonHeadingLines = lines.filter((line) => !/^#{1,6}\s+/.test(line));
-  if (nonHeadingLines.length === 0) return false;
-
-  const bodyText = nonHeadingLines
-    .join(' ')
-    .replace(/[`*_>#-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return bodyText.length >= 30;
-}
-
-function readmePlaceholderLike(content: string): boolean {
-  const trimmed = content.trim();
-  if (trimmed.length === 0) return true;
-
-  const lines = trimmed
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length === 0) return true;
-
-  const nonHeadingLines = lines.filter((line) => !/^#{1,6}\s+/.test(line));
-  return nonHeadingLines.length === 0;
-}
-
-function evaluateSignals(files: string[], signals: Signal[]): SignalResult[] {
-  return signals.map((signal) => {
-    const matches = uniqueSorted(
-      files.filter((filePath) =>
-        signal.patterns.some((pattern) => pattern.test(filePath))
-      )
-    );
-    return {
-      signal,
-      matched: matches.length > 0,
-      matches,
-    };
-  });
-}
-
-async function findNonSubstantiveDocs(
-  rootPath: string,
-  files: string[],
-  readmePath: string | null,
-  signalMatches: SignalResult[]
-): Promise<string[]> {
-  const candidateFiles = new Set<string>();
-
-  if (readmePath) {
-    candidateFiles.add(readmePath);
-  }
-
-  for (const result of signalMatches) {
-    for (const match of result.matches) {
-      const ext = path.extname(match).toLowerCase();
-      if (DOC_EXTENSIONS.has(ext)) {
-        candidateFiles.add(match);
-      }
-    }
-  }
-
-  const nonSubstantive: string[] = [];
-  for (const relativePath of candidateFiles) {
-    try {
-      const content = await fs.readFile(path.join(rootPath, relativePath), 'utf8');
-      if (!hasSubstantiveDocContent(content)) {
-        nonSubstantive.push(relativePath);
-      }
-    } catch {
-      nonSubstantive.push(relativePath);
-    }
-  }
-
-  return uniqueSorted(nonSubstantive);
-}
-
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
+function statusFromScore(score: number): "pass" | "partial" | "fail" {
   const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
+  if (percent >= 75) return "pass";
+  if (percent >= 25) return "partial";
+  return "fail";
+}
+
+function rootLabel(root: string): string {
+  return `${root}/`;
 }
 
 export default async function (ctx: ScanContext): Promise<CheckResult> {
-  const { rootPath, files } = ctx;
-  const normalizedFiles = uniqueSorted(files.map(normalizePath));
-  const readmePath = normalizedFiles.find((f) => f === 'README.md') ?? null;
+  const normalizedFiles = uniqueSorted(ctx.files.map(normalizePath));
+  const rootMatches = DOC_ROOTS.map((root) => {
+    const prefix = `${root}/`;
+    const files = normalizedFiles.filter((filePath) => filePath.startsWith(prefix));
+    const docFiles = files.filter((filePath) =>
+      DOC_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+    );
 
-  if (!readmePath) {
     return {
-      id: 'documentation',
-      name: 'Documentation',
-      category: 'documentation',
-      tier: 'critical',
-      score: 0.1,
-      status: 'fail',
-      summary: 'No README.md found',
+      root,
+      files,
+      docFiles,
+    };
+  });
+
+  const presentRoots = rootMatches.filter((match) => match.files.length > 0);
+  if (presentRoots.length === 0) {
+    return {
+      id: "documentation",
+      name: "Documentation",
+      category: "documentation",
+      tier: "important",
+      score: 0,
+      status: "fail",
+      summary: "No docs/, specs/, or prds/ content found",
       details:
-        'The repository does not include a root README.md, which is a core onboarding artifact.',
+        "The repository does not contain any supported durable documentation roots.",
       recommendations: [
-        'Add a substantive README.md with project purpose, setup steps, and usage examples.',
+        "Add a docs/, specs/, or prds/ directory for durable product, technical, or process documentation.",
       ],
       references: [],
       whyThisMatters: WHY_THIS_MATTERS,
     };
   }
 
-  let readme: string;
-  try {
-    readme = await fs.readFile(path.join(rootPath, readmePath), 'utf8');
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      id: 'documentation',
-      name: 'Documentation',
-      category: 'documentation',
-      tier: 'critical',
-      score: 0.1,
-      status: 'fail',
-      summary: `Unable to read README.md: ${message}`,
-      details: 'README.md exists but could not be read during scanning.',
-      recommendations: [
-        'Repair README.md readability issues so onboarding and tooling checks can parse it.',
-      ],
-      references: ['README.md'],
-      whyThisMatters: WHY_THIS_MATTERS,
-    };
-  }
+  const substantiveFiles: string[] = [];
+  const placeholderFiles: string[] = [];
 
-  const requiredResults = evaluateSignals(normalizedFiles, REQUIRED_SIGNALS);
-  const optionalResults = evaluateSignals(normalizedFiles, OPTIONAL_SIGNALS);
-
-  const readmeSubstantive =
-    hasSubstantiveDocContent(readme) && !readmePlaceholderLike(readme);
-  const readmeScoreWeight = REQUIRED_WEIGHT;
-  const requiredTotalWeight = readmeScoreWeight + requiredResults.length * REQUIRED_WEIGHT;
-  const optionalTotalWeight = optionalResults.length * OPTIONAL_WEIGHT;
-  const totalWeight = requiredTotalWeight + optionalTotalWeight;
-
-  let weightedMet = 0;
-  if (readmeSubstantive) {
-    weightedMet += readmeScoreWeight;
-  }
-
-  for (const result of requiredResults) {
-    if (result.matched) {
-      weightedMet += REQUIRED_WEIGHT;
-    }
-  }
-  for (const result of optionalResults) {
-    if (result.matched) {
-      weightedMet += OPTIONAL_WEIGHT;
+  for (const match of presentRoots) {
+    for (const relativePath of match.docFiles) {
+      try {
+        const content = await fs.readFile(path.join(ctx.rootPath, relativePath), "utf8");
+        if (hasSubstantiveDocContent(content)) {
+          substantiveFiles.push(relativePath);
+        } else {
+          placeholderFiles.push(relativePath);
+        }
+      } catch {
+        placeholderFiles.push(relativePath);
+      }
     }
   }
 
-  const allSignalResults = [...requiredResults, ...optionalResults];
-  const nonSubstantiveDocs = await findNonSubstantiveDocs(
-    rootPath,
-    normalizedFiles,
-    readmePath,
-    allSignalResults
-  );
+  const score =
+    substantiveFiles.length > 0
+      ? 1
+      : presentRoots.some((match) => match.docFiles.length > 0)
+        ? 0.4
+        : 0.2;
 
-  const invalidDocPenalty = Math.min(0.3, nonSubstantiveDocs.length * 0.1);
-  const baseScore = totalWeight > 0 ? weightedMet / totalWeight : 0;
-  const score = Math.max(0, Math.min(1, baseScore - invalidDocPenalty));
-
-  const requiredMetCount =
-    (readmeSubstantive ? 1 : 0) + requiredResults.filter((r) => r.matched).length;
-  const requiredTotalCount = 1 + requiredResults.length;
-  const optionalMetCount = optionalResults.filter((r) => r.matched).length;
-  const optionalTotalCount = optionalResults.length;
-
-  let summary = `Documentation signals: ${requiredMetCount}/${requiredTotalCount} required, ${optionalMetCount}/${optionalTotalCount} optional`;
-  if (!readmeSubstantive) {
-    summary = 'README.md exists but is not substantive';
+  const detectedRoots = presentRoots.map((match) => rootLabel(match.root));
+  let summary = `Documentation roots detected: ${detectedRoots.join(", ")}`;
+  if (substantiveFiles.length === 0) {
+    summary = "Documentation roots exist but no substantive docs were detected";
   }
-  if (nonSubstantiveDocs.length > 0) {
-    summary += ` (${nonSubstantiveDocs.length} placeholder/empty doc file(s) detected)`;
-  }
-
-  const missingRequiredLabels = [
-    ...(readmeSubstantive ? [] : ['substantive README.md']),
-    ...requiredResults.filter((r) => !r.matched).map((r) => r.signal.label),
-  ];
 
   const detailsLines = [
-    `README.md: ${readmeSubstantive ? 'substantive' : 'present but placeholder/brief'}.`,
-    `Required signals met: ${requiredMetCount}/${requiredTotalCount}.`,
-    `Optional signals met: ${optionalMetCount}/${optionalTotalCount}.`,
+    `Detected documentation roots: ${detectedRoots.join(", ")}.`,
+    `Substantive documentation files: ${substantiveFiles.length}.`,
   ];
 
-  if (missingRequiredLabels.length > 0) {
-    detailsLines.push(`Missing required signals: ${missingRequiredLabels.join(', ')}.`);
+  if (placeholderFiles.length > 0) {
+    detailsLines.push(
+      `Placeholder or unreadable documentation files: ${uniqueSorted(placeholderFiles).join(", ")}.`
+    );
   }
 
-  if (nonSubstantiveDocs.length > 0) {
-    detailsLines.push(
-      `Non-substantive documentation files: ${nonSubstantiveDocs.join(', ')}.`
-    );
+  const missingRoots = DOC_ROOTS.filter(
+    (root) => !presentRoots.some((match) => match.root === root)
+  ).map(rootLabel);
+  if (missingRoots.length > 0) {
+    detailsLines.push(`Missing supported documentation roots: ${missingRoots.join(", ")}.`);
   }
 
   const recommendations: string[] = [];
-  if (!readmeSubstantive) {
+  if (substantiveFiles.length === 0) {
     recommendations.push(
-      'Expand README.md beyond a heading/placeholder with setup, usage, testing, and troubleshooting guidance.'
+      "Add substantive documentation under docs/, specs/, or prds/ so contributors have a durable place to find reference material."
     );
   }
-  for (const result of requiredResults) {
-    if (!result.matched) {
-      recommendations.push(result.signal.recommendation);
-    }
-  }
-  if (nonSubstantiveDocs.length > 0) {
+  if (placeholderFiles.length > 0) {
     recommendations.push(
-      `Replace placeholder/empty docs with substantive content: ${nonSubstantiveDocs.join(', ')}.`
+      `Replace placeholder or unreadable documentation files with substantive content: ${uniqueSorted(placeholderFiles).join(", ")}.`
     );
   }
-
-  const missingOptional = optionalResults.filter((r) => !r.matched);
-  if (missingOptional.length > 0) {
-    recommendations.push(
-      `Optional documentation gaps: ${missingOptional
-        .map((result) => result.signal.label)
-        .join(', ')}.`
-    );
-  }
-
   if (recommendations.length === 0) {
     recommendations.push(
-      'Maintain documentation quality and keep key reference docs current as the project evolves.'
+      "Maintain documentation quality in docs/, specs/, and prds/ as the canonical long-form reference layer evolves."
     );
   }
 
-  const references = uniqueSorted(
-    [
-      readmePath,
-      ...allSignalResults.flatMap((result) => result.matches),
-      ...nonSubstantiveDocs,
-    ].filter((value): value is string => Boolean(value))
-  ).slice(0, MAX_REFERENCE_COUNT);
+  const references = uniqueSorted([
+    ...substantiveFiles,
+    ...placeholderFiles,
+  ]).slice(0, MAX_REFERENCE_COUNT);
 
   return {
-    id: 'documentation',
-    name: 'Documentation',
-    category: 'documentation',
-    tier: 'critical',
+    id: "documentation",
+    name: "Documentation",
+    category: "documentation",
+    tier: "important",
     score,
     status: statusFromScore(score),
     summary,
-    details: detailsLines.join(' '),
+    details: detailsLines.join(" "),
     recommendations,
     references,
     whyThisMatters: WHY_THIS_MATTERS,

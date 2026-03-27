@@ -51,7 +51,7 @@ Run only the specified checks.
 
 ```bash
 harnix scan . --only agents-md
-harnix scan . --only agents-md,documentation
+harnix scan . --only agents-md,root-readme,documentation
 ```
 
 `--skip` and `--only` are mutually exclusive.
