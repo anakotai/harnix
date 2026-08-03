@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { ScanContext, CheckResult } from "../../src/types.js";
+import { statusFromScore, type ScanContext, type CheckResult } from "../../src/types.js";
 import {
   hasSubstantiveDocContent,
   normalizePath,
@@ -58,12 +58,6 @@ const README_SIGNALS: ReadmeSignal[] = [
   },
 ];
 
-function statusFromScore(score: number): "pass" | "partial" | "fail" {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return "pass";
-  if (percent >= 25) return "partial";
-  return "fail";
-}
 
 function findRootReadme(files: string[]): string | null {
   return (

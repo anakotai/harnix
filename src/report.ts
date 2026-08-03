@@ -196,33 +196,86 @@ interface RankedRecommendation {
   tier: "critical" | "important" | "nice-to-have";
   score: number;
   name: string;
+  /** Empty string = root scan target; otherwise path attributed to a child. */
+  scanTargetPath: string;
 }
 
-function topRecommendations(checks: CheckResult[]): RankedRecommendation[] {
-  const ranked = checks
+function recommendationsFromChecks(
+  checks: CheckResult[],
+  scanTargetPath: string
+): RankedRecommendation[] {
+  return checks
     .filter((check) => Array.isArray(check.recommendations) && check.recommendations.length > 0)
     .map((check) => ({
       id: check.id,
       recommendation: check.recommendations[0],
       tier: check.tier,
       score: check.score,
-      name: check.name
-    }))
-    .sort((a, b) => {
-      const tierDelta = tierPriority(a.tier) - tierPriority(b.tier);
-      if (tierDelta !== 0) {
-        return tierDelta;
-      }
+      name: check.name,
+      scanTargetPath
+    }));
+}
 
-      const scoreDelta = a.score - b.score;
-      if (scoreDelta !== 0) {
-        return scoreDelta;
-      }
+function collectRecommendationsFromTree(
+  recursiveScans: RecursiveScanInput[],
+  parentPath = ""
+): RankedRecommendation[] {
+  const collected: RankedRecommendation[] = [];
 
-      return a.name.localeCompare(b.name);
-    });
+  for (const scan of recursiveScans) {
+    const fullPath = parentPath ? `${parentPath}/${scan.path}` : scan.path;
+    if (scan.error || !scan.result) {
+      continue;
+    }
 
-  return ranked.slice(0, 3);
+    const childChecks = Array.isArray(scan.result.checks)
+      ? (scan.result.checks as CheckResult[])
+      : [];
+    collected.push(...recommendationsFromChecks(childChecks, fullPath));
+
+    const nested = Array.isArray(scan.result.recursiveScans) ? scan.result.recursiveScans : [];
+    if (nested.length > 0) {
+      collected.push(...collectRecommendationsFromTree(nested, fullPath));
+    }
+  }
+
+  return collected;
+}
+
+function topRecommendations(
+  checks: CheckResult[],
+  recursiveScans: RecursiveScanInput[] = []
+): RankedRecommendation[] {
+  const ranked = [
+    ...recommendationsFromChecks(checks, ""),
+    ...collectRecommendationsFromTree(recursiveScans)
+  ].sort((a, b) => {
+    const tierDelta = tierPriority(a.tier) - tierPriority(b.tier);
+    if (tierDelta !== 0) {
+      return tierDelta;
+    }
+
+    const scoreDelta = a.score - b.score;
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    const pathDelta = a.scanTargetPath.localeCompare(b.scanTargetPath);
+    if (pathDelta !== 0) {
+      return pathDelta;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+
+  return ranked.slice(0, 5);
+}
+
+function formatRecommendationLine(item: RankedRecommendation): string {
+  if (item.scanTargetPath.length > 0) {
+    return `[${item.scanTargetPath}] ${item.recommendation}`;
+  }
+  return item.recommendation;
 }
 
 interface RecursiveScanInput {
@@ -286,6 +339,12 @@ function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntr
 
 export interface ReportOptions {
   recursiveScans?: RecursiveScanInput[];
+  harnixVersion?: string;
+}
+
+function scoreLabel(hasChildren: boolean): string {
+  // Until rollup is productized, root score is local-only; avoid calling it "overall" when children exist.
+  return hasChildren ? "Local score" : "Overall score";
 }
 
 export function buildMarkdownReport(
@@ -299,19 +358,32 @@ export function buildMarkdownReport(
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
-  const recommendations = topRecommendations(checks);
-  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
+  const recursiveInput = options.recursiveScans ?? [];
+  const recommendations = topRecommendations(checks, recursiveInput);
+  const recursiveScans = recursiveBreakdown(recursiveInput);
+  const hasChildren = recursiveScans.length > 0;
+  const versionLine =
+    typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
+      ? [`- Harnix version: **${options.harnixVersion}**`]
+      : [];
 
   const lines: string[] = [
     "# Harnix Harness Readiness Report",
     "",
     "## Executive Summary",
     "",
-    `- Overall score: **${overallPercent}%**`,
+    `- ${scoreLabel(hasChildren)}: **${overallPercent}%**`,
     `- Qualitative band: **${band}**`,
+    ...versionLine,
     `- Generated: ${timestamp}`,
     `- Scanned path: \`${scannedPath}\``,
     `- Checks evaluated: ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)`,
+    ...(checks.length === 0
+      ? [
+          "",
+          "> Warning: no checks were evaluated. Review `--only` / `--skip` filters and repo type applicability.",
+        ]
+      : []),
     "",
     "## Category Breakdown",
     "",
@@ -374,7 +446,9 @@ export function buildMarkdownReport(
   lines.push("## Prioritized Recommendations", "");
   if (recommendations.length > 0) {
     recommendations.forEach((item, index) => {
-      lines.push(`${index + 1}. ${item.recommendation} (${item.name}, ${item.tier})`);
+      lines.push(
+        `${index + 1}. ${formatRecommendationLine(item)} (${item.name}, ${item.tier})`
+      );
     });
   } else {
     lines.push("No prioritized recommendations generated.");
@@ -395,7 +469,13 @@ export function buildHtmlReport(
   const band = overallBand(overallPercent);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
-  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
+  const recursiveInput = options.recursiveScans ?? [];
+  const recursiveScans = recursiveBreakdown(recursiveInput);
+  const hasChildren = recursiveScans.length > 0;
+  const versionMeta =
+    typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
+      ? ` • Harnix ${escapeHtml(options.harnixVersion)}`
+      : "";
 
   const categoryRows = categoryScores
     .map((category) => {
@@ -506,10 +586,10 @@ ${recommendationItems}
     })
     .join("\n");
 
-  const recommendationItems = topRecommendations(checks)
+  const recommendationItems = topRecommendations(checks, recursiveInput)
     .map(
       (item) =>
-        `<li>${escapeHtml(item.recommendation)} <span class="meta">(${escapeHtml(item.name)}, ${escapeHtml(item.tier)})</span></li>`
+        `<li>${escapeHtml(formatRecommendationLine(item))} <span class="meta">(${escapeHtml(item.name)}, ${escapeHtml(item.tier)})</span></li>`
     )
     .join("\n");
   const recommendationsList = recommendationItems || "<li>No prioritized recommendations generated.</li>";
@@ -721,7 +801,7 @@ ${recommendationItems}
     <header class="page-header">
       <div>
         <h1>Harnix Harness Readiness Report</h1>
-        <p class="meta">Generated ${escapeHtml(timestamp)} • Scanned <code>${escapeHtml(scannedPath)}</code></p>
+        <p class="meta">Generated ${escapeHtml(timestamp)} • Scanned <code>${escapeHtml(scannedPath)}</code>${versionMeta}</p>
       </div>
       <div class="controls" role="group" aria-label="Report controls">
         <button id="theme-toggle" type="button">Toggle theme</button>
@@ -732,13 +812,18 @@ ${recommendationItems}
 
     <h2>Executive Summary</h2>
     <div class="summary-card">
-      <p><strong>Overall score:</strong> ${escapeHtml(String(overallPercent))}%</p>
+      <p><strong>${escapeHtml(scoreLabel(hasChildren))}:</strong> ${escapeHtml(String(overallPercent))}%</p>
       <div class="score-track" aria-hidden="true">
         <div class="score-fill" style="width: ${overallPercent}%"></div>
       </div>
-      <span class="metric-label">${overallPercent}% readiness</span>
+      <span class="metric-label">${overallPercent}% signal coverage</span>
       <p><strong>Qualitative band:</strong> ${escapeHtml(band)}</p>
       <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+      ${
+        checks.length === 0
+          ? `<p class="meta"><strong>Warning:</strong> no checks were evaluated. Review <code>--only</code> / <code>--skip</code> filters and repo type applicability.</p>`
+          : ""
+      }
     </div>
 
     <h2>Category Breakdown</h2>
@@ -899,16 +984,32 @@ export function printConsoleReport(
   targetPath: string,
   checks: CheckResult[],
   overallScore: number,
-  options: { verbose?: boolean; recursiveScans?: RecursiveScanInput[] } = {}
+  options: {
+    verbose?: boolean;
+    recursiveScans?: RecursiveScanInput[];
+    harnixVersion?: string;
+  } = {}
 ): void {
   const verbose = options.verbose === true;
   const overallPercent = Math.round(overallScore * 100);
   const band = overallBand(overallPercent);
-  const recursiveScans = recursiveBreakdown(options.recursiveScans ?? []);
+  const recursiveInput = options.recursiveScans ?? [];
+  const recursiveScans = recursiveBreakdown(recursiveInput);
+  const hasChildren = recursiveScans.length > 0;
 
   console.log(bold(`Harness Readiness Report: ${targetPath}`));
   console.log("───────────────────────────────────────");
-  console.log(`${bold("Overall score:")} ${formatBandWithPercent(band, overallPercent)}`);
+  if (typeof options.harnixVersion === "string" && options.harnixVersion.length > 0) {
+    console.log(`Harnix ${options.harnixVersion}`);
+  }
+  console.log(
+    `${bold(`${scoreLabel(hasChildren)}:`)} ${formatBandWithPercent(band, overallPercent)}`
+  );
+  if (checks.length === 0) {
+    console.log(
+      "Warning: no checks were evaluated (check --only/--skip filters and repo type applicability)."
+    );
+  }
   if (recursiveScans.length > 0) {
     console.log("");
     console.log(bold("Monorepo breakdown:"));
@@ -939,12 +1040,12 @@ export function printConsoleReport(
     }
   }
 
-  const recommendations = topRecommendations(checks);
+  const recommendations = topRecommendations(checks, recursiveInput);
   if (recommendations.length > 0) {
     console.log("");
     console.log(bold("Top recommendations:"));
     recommendations.forEach((item, index) => {
-      console.log(`${index + 1}. ${item.recommendation}`);
+      console.log(`${index + 1}. ${formatRecommendationLine(item)}`);
     });
   }
 }

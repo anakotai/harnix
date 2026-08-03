@@ -1,16 +1,10 @@
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { statusFromScore, type ScanContext, type CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
   'Clear repository structure improves onboarding, simplifies CI/CD, and helps agents navigate codebases predictably. Organize source code in dedicated directories and configure workspace tooling for monorepos.';
 
 const SOURCE_DIRS = ['src', 'lib', 'packages', 'apps', 'modules', 'crates'];
 
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
-}
 
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   const { files, gitInfo } = ctx;

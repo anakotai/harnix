@@ -4,7 +4,12 @@ import { existsSync } from "node:fs";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 import type { CheckResult } from "./types.js";
-import { detectGitInfo, detectRepoType, listFiles } from "./scanner.js";
+import {
+  detectGitInfo,
+  detectRepoType,
+  listFiles,
+  resolveContainedChildPathAsync
+} from "./scanner.js";
 import type { GitInfo } from "./scanner.js";
 import { metaSchema, type CheckMeta } from "./schemas/meta.js";
 
@@ -206,7 +211,11 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
   const maxDepth = configuredMaxDepth ?? Number.POSITIVE_INFINITY;
   const currentDepth = options._currentDepth ?? 0;
   const visitedPaths = options._visitedPaths ?? new Set<string>();
-  visitedPaths.add(absolutePath);
+  try {
+    visitedPaths.add(await fs.realpath(absolutePath));
+  } catch {
+    visitedPaths.add(absolutePath);
+  }
 
   const files = await listFiles(absolutePath);
   const repoType = options.repoType ?? detectRepoType(files);
@@ -269,15 +278,24 @@ async function runRecursiveScans(
   const recursiveScans: RecursiveScanEntry[] = [];
 
   for (const candidate of candidates) {
-    const normalizedPath = normalizeRelativePath(candidate.relativePath);
-    if (normalizedPath.length === 0 || normalizedPath === ".") {
+    const contained = await resolveContainedChildPathAsync(rootPath, candidate.relativePath);
+    if (!contained) {
       continue;
     }
 
-    const absoluteChildPath = path.resolve(rootPath, normalizedPath);
-    if (options.visitedPaths.has(absoluteChildPath)) {
+    const { absolutePath: absoluteChildPath, relativePath: normalizedPath } = contained;
+
+    let childRealPath: string;
+    try {
+      childRealPath = await fs.realpath(absoluteChildPath);
+    } catch {
       continue;
     }
+
+    if (options.visitedPaths.has(childRealPath)) {
+      continue;
+    }
+    options.visitedPaths.add(childRealPath);
 
     const childStats = await safeStatDirectory(absoluteChildPath);
     if (!childStats) {
@@ -312,10 +330,6 @@ async function runRecursiveScans(
   }
 
   return recursiveScans;
-}
-
-function normalizeRelativePath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "").trim();
 }
 
 async function safeStatDirectory(absolutePath: string): Promise<import("node:fs").Stats | null> {

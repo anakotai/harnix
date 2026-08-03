@@ -32,6 +32,22 @@ export const SCORE_BANDS = {
   excellent: { min: 76, max: 100, label: 'Excellent' },
 } as const;
 
+/** Fixed coverage-strength thresholds for per-check status (scores are 0–1). */
+export const CHECK_STATUS_THRESHOLDS = {
+  pass: 0.75,
+  partial: 0.25,
+} as const;
+
+export function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
+  if (score >= CHECK_STATUS_THRESHOLDS.pass) {
+    return 'pass';
+  }
+  if (score >= CHECK_STATUS_THRESHOLDS.partial) {
+    return 'partial';
+  }
+  return 'fail';
+}
+
 export interface RecursiveScanResult {
   kind: 'submodule' | 'workspace';
   path: string;

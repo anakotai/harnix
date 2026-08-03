@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { statusFromScore, type ScanContext, type CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
   'Well-structured agent skills enable predictable autonomous workflows. Skills directories with valid frontmatter and no hidden Markdown instructions reduce security risk and improve agent reliability.';
@@ -16,12 +16,6 @@ const SKILL_ROOT_DIRS = [
 const VALID_OPTIONAL_DIRS = new Set(['scripts', 'references', 'assets']);
 const HIDDEN_MARKDOWN_COMMENT_PATTERN = /<!--[\s\S]*?-->/;
 
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
-}
 
 interface SkillValidation {
   path: string;

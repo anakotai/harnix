@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
@@ -7,7 +8,10 @@ import { printConsoleReport, writeReportFiles } from "./report.js";
 import { configSchema } from "./schemas/config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HARNIX_ROOT = path.resolve(__dirname, "..", "..");
+// From src/cli.ts: package.json is one level up; from dist/src/cli.js: two levels up
+const HARNIX_ROOT = existsSync(path.join(__dirname, "..", "package.json"))
+  ? path.resolve(__dirname, "..")
+  : path.resolve(__dirname, "..", "..");
 const ANSI_RESET = "\u001b[0m";
 const ANSI_BOLD = "\u001b[1m";
 
@@ -33,11 +37,15 @@ function bold(text: string): string {
   return `${ANSI_BOLD}${text}${ANSI_RESET}`;
 }
 
-async function readVersion(): Promise<string> {
-  const packageJsonPath = path.join(HARNIX_ROOT, "package.json");
-  const content = await fs.readFile(packageJsonPath, "utf8");
-  const pkg = JSON.parse(content) as { version: string };
-  return pkg.version;
+async function readVersion(): Promise<string | undefined> {
+  try {
+    const packageJsonPath = path.join(HARNIX_ROOT, "package.json");
+    const content = await fs.readFile(packageJsonPath, "utf8");
+    const pkg = JSON.parse(content) as { version: string };
+    return typeof pkg.version === "string" && pkg.version.length > 0 ? pkg.version : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function printHelp(): void {
@@ -348,6 +356,11 @@ export async function runCli(args: string[]): Promise<void> {
 
   if (command === "--version" || command === "-V") {
     const version = await readVersion();
+    if (!version) {
+      console.error("Unable to read package version");
+      process.exitCode = 1;
+      return;
+    }
     console.log(version);
     return;
   }
@@ -378,10 +391,18 @@ export async function runCli(args: string[]): Promise<void> {
       ? path.resolve(resolvedPath, config.outputPath)
       : undefined;
 
-  const effectiveOnlyIds =
-    onlyIds.length > 0 ? onlyIds : (config.onlyIds ?? []);
-  const effectiveSkipIds =
-    effectiveOnlyIds.length > 0 ? [] : skipIds.length > 0 ? skipIds : (config.skipIds ?? []);
+  // CLI flags override config. CLI --only ignores all skip sources (including config).
+  // CLI --skip still applies when only comes from config (config only does not swallow CLI skip).
+  const cliOnly = onlyIds.length > 0;
+  const cliSkip = skipIds.length > 0;
+  const effectiveOnlyIds = cliOnly ? onlyIds : (config.onlyIds ?? []);
+  const effectiveSkipIds = cliOnly
+    ? []
+    : cliSkip
+      ? skipIds
+      : effectiveOnlyIds.length > 0
+        ? []
+        : (config.skipIds ?? []);
   const effectiveRepoType = repoType ?? config.repoType;
   const effectiveDepth = depth ?? config.depth;
 
@@ -391,9 +412,11 @@ export async function runCli(args: string[]): Promise<void> {
     repoType: effectiveRepoType,
     maxDepth: effectiveDepth
   });
+  const harnixVersion = await readVersion();
   printConsoleReport(targetPath, result.checks, result.overallScore, {
     verbose,
-    recursiveScans: result.recursiveScans
+    recursiveScans: result.recursiveScans,
+    harnixVersion
   });
 
   const reports = await writeReportFiles(
@@ -401,7 +424,7 @@ export async function runCli(args: string[]): Promise<void> {
     result.checks,
     result.overallScore,
     resolvedOutputPath,
-    { recursiveScans: result.recursiveScans }
+    { recursiveScans: result.recursiveScans, harnixVersion }
   );
   console.log("");
   console.log(bold("Reports written:"));

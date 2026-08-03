@@ -233,3 +233,48 @@ describe("printConsoleReport", () => {
     }
   });
 });
+
+describe("report run identity", () => {
+  it("includes Harnix version in markdown when provided", () => {
+    const md = buildMarkdownReport("/test/repo", sampleChecks, 0.5, "20260305T143045", {
+      harnixVersion: "0.18.0",
+    });
+    expect(md).toContain("0.18.0");
+    expect(md).toMatch(/Harnix version/i);
+  });
+
+  it("labels local score when recursive children exist", () => {
+    const md = buildMarkdownReport("/test/repo", sampleChecks, 0.5, "20260305T143045", {
+      recursiveScans: [
+        {
+          path: "packages/a",
+          kind: "workspace",
+          result: { overallScore: 0.2, checks: sampleChecks },
+        },
+      ],
+    });
+    expect(md).toContain("Local score");
+    expect(md).not.toMatch(/^- Overall score:/m);
+  });
+
+  it("attributes child recommendations in prioritized list", () => {
+    const md = buildMarkdownReport("/test/repo", sampleChecks, 0.9, "20260305T143045", {
+      recursiveScans: [
+        {
+          path: "frontend",
+          kind: "workspace",
+          result: {
+            overallScore: 0.1,
+            checks: [
+              {
+                ...sampleChecks[1],
+                recommendations: ["Add CI in frontend"],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect(md).toContain("[frontend]");
+  });
+});

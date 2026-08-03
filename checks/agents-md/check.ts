@@ -1,16 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { statusFromScore, type ScanContext, type CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
   'Clear agent instructions prevent workflow errors and keep autonomous edits aligned with repository-specific expectations. Add AGENTS.md guidance for setup, tests, and repo-specific guardrails.';
 
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
-}
 
 function evaluateGuidanceLength(
   sourceFile: string,

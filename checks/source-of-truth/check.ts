@@ -1,4 +1,4 @@
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { statusFromScore, type ScanContext, type CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
   'Duplicated sources of truth lead to inconsistencies, stale documentation, and conflicting configurations. Consolidate each concern into a single canonical location.';
@@ -54,12 +54,6 @@ const SEMANTIC_GROUPS: SemanticGroup[] = [
   },
 ];
 
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
-}
 
 interface Violation {
   group: string;

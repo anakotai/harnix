@@ -1,16 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { ScanContext, CheckResult } from '../../src/types.js';
+import { statusFromScore, type ScanContext, type CheckResult } from '../../src/types.js';
 
 const WHY_THIS_MATTERS =
   'Automated tests reduce regression risk and make agent-driven changes safer to ship. Keep tests isolated and document exact test commands so verification is fast and consistent.';
 
-function statusFromScore(score: number): 'pass' | 'partial' | 'fail' {
-  const percent = Math.round(score * 100);
-  if (percent >= 75) return 'pass';
-  if (percent >= 25) return 'partial';
-  return 'fail';
-}
 
 export default async function (ctx: ScanContext): Promise<CheckResult> {
   const { rootPath, files } = ctx;

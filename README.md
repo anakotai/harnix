@@ -1,12 +1,12 @@
 # Harnix
 
-**Harnix** is an open-source harness readiness scanner that evaluates how well a repository is prepared for AI-assisted development workflows. It scans your codebase and produces a scored report covering agent guidance, documentation quality, CI pipelines, testing provisions, repository structure, and more.
+**Harnix** is an open-source harness readiness scanner that evaluates how well a repository exposes foundational operating context for AI-assisted development workflows. It scans your codebase and produces a scored report covering agent guidance, documentation presence, CI configuration signals, testing provisions, repository structure, and more.
 
 ## Motivation
 
-AI coding agents — GitHub Copilot, Claude Code, Codex, Gemini CLI — are becoming standard development tools. But their effectiveness depends heavily on how well a repository communicates its conventions, build steps, and architectural decisions. A repo without an `AGENTS.md`, clear documentation, or CI pipelines forces every agent session to start from scratch, burning context and producing inconsistent results.
+AI coding agents — GitHub Copilot, Claude Code, Codex, Gemini CLI — are becoming standard development tools. Their usefulness improves when a repository makes conventions, build steps, and decisions discoverable. A repo without an `AGENTS.md`, clear documentation, or CI pipelines forces every agent session to start from scratch, burning context and producing inconsistent results.
 
-**Harness readiness** is the measure of how prepared a codebase is for productive AI collaboration. Harnix quantifies this readiness with a repeatable, scored assessment.
+**Harness readiness** (as Harnix measures it) is heuristic signal coverage over that discoverable operating context — not a prediction that agents will succeed. Harnix quantifies those signals with a repeatable, scored assessment.
 
 ## The Problem
 
@@ -211,7 +211,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 
 ## Built by Anakot
 
-Harnix is built and maintained by [Anakot](https://anakot.ai/haas) as part of the Harness-as-a-Service platform. It is the open-source foundation of Anakot's compliance intelligence tooling for AI-ready development workflows.
+Harnix is built and maintained by [Anakot](https://anakot.ai/haas) as part of the Harness-as-a-Service platform. It is the open-source assessment toolkit for harness readiness signals that can feed broader AI-ready development workflows.
 
 ## Resources
 

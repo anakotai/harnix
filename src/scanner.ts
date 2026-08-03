@@ -34,11 +34,134 @@ const ROOT_WORKSPACE_MARKERS: Record<string, string> = {
 
 const IGNORED_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"]);
 
+/**
+ * Normalize a relative path from manifests (posix slashes, strip ./ and trailing /).
+ * Does not resolve `..` — use {@link resolveContainedChildPath} before filesystem access.
+ */
+export function normalizeRelativePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "").trim();
+}
+
+/** True when resolvedPath is rootReal or a descendant (after both are resolved). */
+export function isResolvedInsideRoot(rootReal: string, resolvedPath: string): boolean {
+  const root = path.resolve(rootReal);
+  const target = path.resolve(resolvedPath);
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+/**
+ * Lexical containment only (no symlink resolution). Prefer
+ * {@link resolveContainedChildPathAsync} before filesystem access.
+ */
+export function resolveContainedChildPath(
+  rootPath: string,
+  candidate: string
+): { absolutePath: string; relativePath: string } | null {
+  const rootResolved = path.resolve(rootPath);
+  const raw = candidate.trim();
+  if (raw.length === 0) {
+    return null;
+  }
+
+  const normalized = normalizeRelativePath(raw);
+  if (normalized.length === 0 || normalized === ".") {
+    return null;
+  }
+
+  // Reject empty path segments and explicit parent references before resolve.
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+  if (segments.some((segment) => segment === "..")) {
+    return null;
+  }
+
+  const absolutePath = path.isAbsolute(raw)
+    ? path.resolve(raw)
+    : path.resolve(rootResolved, normalized);
+
+  const relative = path.relative(rootResolved, absolutePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  const relativePath = relative.split(path.sep).join("/") || ".";
+  if (relativePath === ".") {
+    return null;
+  }
+
+  return { absolutePath, relativePath };
+}
+
+/**
+ * Containment with realpath: rejects paths that lexically stay in-tree but resolve
+ * (via symlink) outside the scan root. Broken / missing paths return null.
+ */
+export async function resolveContainedChildPathAsync(
+  rootPath: string,
+  candidate: string
+): Promise<{ absolutePath: string; relativePath: string } | null> {
+  const lexical = resolveContainedChildPath(rootPath, candidate);
+  if (!lexical) {
+    return null;
+  }
+
+  let rootReal: string;
+  let childReal: string;
+  try {
+    rootReal = await fs.realpath(rootPath);
+    childReal = await fs.realpath(lexical.absolutePath);
+  } catch {
+    return null;
+  }
+
+  if (!isResolvedInsideRoot(rootReal, childReal)) {
+    return null;
+  }
+
+  return lexical;
+}
+
 export async function listFiles(rootPath: string): Promise<string[]> {
   const files: string[] = [];
+  const rootResolved = path.resolve(rootPath);
+  let rootReal: string;
+  try {
+    rootReal = await fs.realpath(rootResolved);
+  } catch {
+    rootReal = rootResolved;
+  }
+
+  /** Real directories already entered — breaks symlink cycles and diamond links. */
+  const visitedDirReals = new Set<string>();
+
+  async function directoryRealIfInside(absolutePath: string): Promise<string | null> {
+    try {
+      const stats = await fs.stat(absolutePath);
+      if (!stats.isDirectory()) {
+        return null;
+      }
+      const real = await fs.realpath(absolutePath);
+      if (!isResolvedInsideRoot(rootReal, real)) {
+        return null;
+      }
+      return real;
+    } catch {
+      return null;
+    }
+  }
 
   async function walk(relativeDir: string): Promise<void> {
-    const absoluteDir = path.join(rootPath, relativeDir);
+    const absoluteDir =
+      relativeDir === "." || relativeDir === ""
+        ? rootResolved
+        : path.join(rootResolved, relativeDir);
+
+    const dirReal = await directoryRealIfInside(absoluteDir);
+    if (!dirReal || visitedDirReals.has(dirReal)) {
+      return;
+    }
+    visitedDirReals.add(dirReal);
+
     let entries: import("node:fs").Dirent[];
     try {
       entries = await fs.readdir(absoluteDir, { withFileTypes: true });
@@ -51,12 +174,42 @@ export async function listFiles(rootPath: string): Promise<string[]> {
     }
 
     for (const entry of entries) {
-      const relativePath = path.join(relativeDir, entry.name);
+      const relativePath =
+        relativeDir === "." || relativeDir === ""
+          ? entry.name
+          : path.join(relativeDir, entry.name);
+      const absolutePath = path.join(rootResolved, relativePath);
 
-      if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
+      const childDirReal = await directoryRealIfInside(absolutePath);
+      if (childDirReal) {
+        if (!IGNORED_DIRS.has(entry.name) && !visitedDirReals.has(childDirReal)) {
           await walk(relativePath);
         }
+        continue;
+      }
+
+      // Skip broken links / external symlink targets that look like non-dirs after stat failure.
+      // Only include entries that exist as non-directory (or symlink-to-file) inside the root.
+      try {
+        const stats = await fs.lstat(absolutePath);
+        if (stats.isSymbolicLink()) {
+          try {
+            const targetStats = await fs.stat(absolutePath);
+            if (targetStats.isDirectory()) {
+              // External or already-visited dir — already handled / skipped above.
+              continue;
+            }
+            const targetReal = await fs.realpath(absolutePath);
+            if (!isResolvedInsideRoot(rootReal, targetReal)) {
+              continue;
+            }
+          } catch {
+            continue;
+          }
+        } else if (stats.isDirectory()) {
+          continue;
+        }
+      } catch {
         continue;
       }
 
@@ -156,7 +309,17 @@ async function readSubmodulePaths(rootPath: string): Promise<string[]> {
       .filter((candidate) => candidate.length > 0)
       .map((candidate) => candidate.replace(/\\/g, "/"));
 
-    return Array.from(new Set(submodulePaths));
+    // Metadata list: lexical containment only so declared-but-uninitialized
+    // submodules remain visible. Engine recursion uses realpath containment.
+    const containedPaths: string[] = [];
+    for (const candidate of submodulePaths) {
+      const contained = resolveContainedChildPath(rootPath, candidate);
+      if (contained) {
+        containedPaths.push(contained.relativePath);
+      }
+    }
+
+    return Array.from(new Set(containedPaths));
   } catch {
     return [];
   }
@@ -291,10 +454,6 @@ function extractWorkspacePatterns(value: unknown): string[] {
   return Array.from(new Set(patterns));
 }
 
-function normalizeRelativePath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "").trim();
-}
-
 function globPatternToRegex(pattern: string): RegExp {
   let expression = "^";
 
@@ -405,15 +564,24 @@ async function resolveWorkspacePaths(rootPath: string, files: string[], inputs: 
   ]);
 
   for (const candidate of patternMatches) {
-    workspaceCandidates.add(normalizeRelativePath(candidate));
+    const contained = await resolveContainedChildPathAsync(rootPath, candidate);
+    if (contained) {
+      workspaceCandidates.add(contained.relativePath);
+    }
   }
 
   for (const candidate of inputs.cargoWorkspaceMembers) {
-    workspaceCandidates.add(normalizeRelativePath(candidate));
+    const contained = await resolveContainedChildPathAsync(rootPath, candidate);
+    if (contained) {
+      workspaceCandidates.add(contained.relativePath);
+    }
   }
 
   for (const candidate of inputs.nxWorkspaceProjects) {
-    workspaceCandidates.add(normalizeRelativePath(candidate));
+    const contained = await resolveContainedChildPathAsync(rootPath, candidate);
+    if (contained) {
+      workspaceCandidates.add(contained.relativePath);
+    }
   }
 
   const resolved: string[] = [];

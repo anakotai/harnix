@@ -158,3 +158,60 @@ describe("tier-weighted scoring", () => {
     expect(result.overallScore).toBeCloseTo(weightedAvg, 10);
   });
 });
+
+describe("scanRepository path confinement", () => {
+  it("does not recurse into submodule paths that escape the root", async () => {
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-escape-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-outside-"));
+    try {
+      await fs.writeFile(path.join(outside, "AGENTS.md"), "outside secret guidance\n", "utf8");
+      await fs.writeFile(
+        path.join(rootDir, ".gitmodules"),
+        ['[submodule "evil"]', "\tpath = ../" + path.basename(outside), "\turl = https://example.invalid/evil.git"].join("\n"),
+        "utf8",
+      );
+      await fs.writeFile(path.join(rootDir, "README.md"), "# Root\n", "utf8");
+
+      const result = await scanRepository(rootDir, { recursive: true });
+      const escaped = result.recursiveScans.some((scan) =>
+        scan.absolutePath.includes(outside) || scan.path.includes(".."),
+      );
+      expect(escaped).toBe(false);
+      expect(result.recursiveScans.length).toBe(0);
+    } finally {
+      await fs.rm(rootDir, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+
+describe("scanRepository symlink escape", () => {
+  it("does not recurse into a submodule path that is a symlink outside the root", async () => {
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-symescape-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "harnix-symescape-out-"));
+    try {
+      await fs.writeFile(path.join(outside, "AGENTS.md"), "outside secret guidance\n", "utf8");
+      await fs.symlink(outside, path.join(rootDir, "evil"), "dir");
+      await fs.writeFile(
+        path.join(rootDir, ".gitmodules"),
+        ['[submodule "evil"]', "\tpath = evil", "\turl = https://example.invalid/evil.git"].join("\n"),
+        "utf8",
+      );
+      await fs.writeFile(path.join(rootDir, "README.md"), "# Root\n", "utf8");
+
+      const result = await scanRepository(rootDir, { recursive: true });
+      // Declared path may appear in metadata; recursion must not enter the external target.
+      expect(result.gitInfo.submodules).toContain("evil");
+      expect(result.recursiveScans.length).toBe(0);
+      // Root inventory must not list files from the external directory.
+      const { listFiles } = await import("../src/scanner.js");
+      const files = await listFiles(rootDir);
+      expect(files.some((f) => f.replace(/\\/g, "/").includes("AGENTS.md"))).toBe(false);
+      expect(files.some((f) => f.replace(/\\/g, "/").includes("secret"))).toBe(false);
+    } finally {
+      await fs.rm(rootDir, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+});
