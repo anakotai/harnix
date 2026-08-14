@@ -57,3 +57,7 @@ Thumbs.db
 .venv/
 __pycache__/
 *.py[cod]
+
+# temporary files, work-in-progress
+tmp/
+wip/
