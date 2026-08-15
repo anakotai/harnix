@@ -1,0 +1,17 @@
+id: ubiquitous-language
+name: Ubiquitous language
+category: documentation
+tier: important
+description: >-
+  Detects CONTEXT.md or UBIQUITOUS_LANGUAGE.md at the repository root
+  (preferred) or in a nested project directory, scores whether the file
+  has substantive domain language, and ignores copies under docs/ and
+  vendored trees.
+tags:
+  - context
+  - ubiquitous-language
+  - domain-driven-design
+  - CONTEXT.md
+  - UBIQUITOUS_LANGUAGE.md
+  - documentation
+applicableTo: all

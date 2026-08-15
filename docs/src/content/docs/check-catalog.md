@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 8 built-in checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 9 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 8 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
+Harnix ships with 9 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
 
 ## Active checks
 
@@ -14,6 +14,7 @@ Harnix ships with 8 built-in checks grouped into 6 categories. Each check produc
 | [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Root README](#root-readme) | `root-readme` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Ubiquitous language](#ubiquitous-language) | `ubiquitous-language` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Source of truth](#source-of-truth) | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
@@ -150,6 +151,46 @@ Checks for durable documentation roots such as `docs/`, `specs/`, and `prds/`. T
 | Documentation roots exist but contain no supported documentation files | 0.2 |
 | Documentation roots exist but only placeholder docs were detected | 0.4 |
 | At least one substantive doc exists under `docs/`, `specs/`, or `prds/` | 1.0 |
+
+### Ubiquitous language
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+Checks for `CONTEXT.md` or `UBIQUITOUS_LANGUAGE.md` (case-insensitive basename). Either filename is enough. A root copy is the preferred canonical glossary; a copy in any nested project directory counts as supplementary language for that subtree.
+
+[Ubiquitous language](https://www.dremio.com/wiki/ubiquitous-language/) is a [domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design) practice: the team uses one shared vocabulary for the domain, in conversation and in written artifacts. That glossary has become more useful in the agentic coding era, because a discoverable language file is a cheap constraint against invented synonyms and inconsistent edits.
+
+Files under `docs/` are ignored. `docs/` is a documentation root, so `docs/CONTEXT.md` is not treated as ubiquitous-language evidence. The same exclusion applies to any path with a `docs` directory segment, such as `src/billing/docs/CONTEXT.md`. Copies under `vendor/`, `third_party/`, or `third-party/` are also ignored so a vendored project's glossary cannot inflate the score.
+
+This check does not score whether the code still matches the terms.
+
+#### What it checks
+
+- Presence of `CONTEXT.md` or `UBIQUITOUS_LANGUAGE.md` at the repository root
+- Presence of the same filenames in a nested project directory (for example `src/ordering/CONTEXT.md` or `packages/billing/CONTEXT.md`)
+- Whether accepted files have substantive body content, using the same substance heuristic as the documentation check
+- Copies under `docs/` are ignored
+- Copies under `vendor/`, `third_party/`, or `third-party/` are ignored
+- Nested placement is not restricted to source-code roots such as `src/`. Any other project path outside those excluded segments counts.
+
+#### Scoring
+
+| Condition | Score |
+|---|---|
+| No accepted file found | 0 |
+| Accepted file exists but could not be read | 0.1 |
+| Accepted file exists but is empty or only a placeholder | 0.4 |
+| Substantive nested file found, but no substantive root file | 0.7 |
+| Substantive root `CONTEXT.md` or `UBIQUITOUS_LANGUAGE.md` | 1.0 |
+
+#### Further reading
+
+- [`domain-modeling` skill](https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling) by Matt Pocock
+- [Ubiquitous Language: the Good, the Bad, and the Lessons](https://dev.to/upslide/ubiquitous-language-the-good-the-bad-and-the-lessons-c2p) by Fabien Sinquin
 
 ### Repo structure
 

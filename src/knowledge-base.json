@@ -3,6 +3,7 @@
     "agents-md": "Clear agent instructions prevent workflow errors and keep autonomous edits aligned with repository-specific expectations. Add AGENTS.md guidance for setup, tests, and repo-specific guardrails.",
     "root-readme": "A root README is the fastest onboarding artifact for humans and agents. It should explain what the repository is for, how to get started, and how to verify changes safely.",
     "documentation": "Durable documentation roots such as docs/, specs/, and prds/ keep long-form reference material discoverable instead of scattering it across ad hoc files.",
+    "ubiquitous-language": "A shared ubiquitous language keeps humans and agents using the same domain terms. Add a substantive root CONTEXT.md or UBIQUITOUS_LANGUAGE.md; nested copies may supplement that glossary, but copies under docs/ are ignored.",
     "ci-pipeline": "Continuous integration catches regressions early and enforces minimum quality before changes reach shared branches. Add or tighten CI checks for lint, tests, and builds before merge.",
     "testing-provision": "Automated tests reduce regression risk and make agent-driven changes safer to ship. Keep tests isolated and document exact test commands so verification is fast and consistent."
   }

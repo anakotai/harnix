@@ -13,6 +13,7 @@ AI coding agents — GitHub Copilot, Claude Code, Codex, Gemini CLI — are beco
 Most repositories lack the structural signals that AI agents need to be effective:
 
 - No `AGENTS.md` or equivalent guidance file telling agents how to build, test, and navigate the codebase
+- No `CONTEXT.md` or `UBIQUITOUS_LANGUAGE.md` capturing the project's shared domain vocabulary
 - Missing or skeletal documentation that forces agents to guess at conventions
 - No CI pipeline to catch agent-introduced regressions
 - No testing infrastructure for agents to validate their changes against
@@ -40,6 +41,7 @@ Overall: Good (53%)
 ✓ Agents guidance     80%  AGENTS.md has brief guidance
 ✗ CI pipeline          0%  No CI/CD configuration detected
 ✗ Documentation        0%  No docs/, specs/, or prds/ content found
+✗ Ubiquitous language  0%  No CONTEXT.md or UBIQUITOUS_LANGUAGE.md found
 ✓ Repo structure      75%  Source organized in src
 ✗ Root README         0%  No root README.md or README.txt found
 ✓ Source of truth    100%  No single source of truth violations detected
@@ -187,7 +189,7 @@ Checks are grouped by category, and each category's score is also calculated usi
 
 ## Check Catalog
 
-Harnix ships with 8 built-in checks:
+Harnix ships with 9 built-in checks:
 
 | ID | Name | Category | Tier | Description |
 |---|---|---|---|---|
@@ -196,6 +198,7 @@ Harnix ships with 8 built-in checks:
 | `ci-pipeline` | CI pipeline | Quality Gates | Important | Detects CI/CD config for GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis, Azure Pipelines |
 | `root-readme` | Root README | Documentation | Critical | Checks for a substantive root README.md or README.txt with onboarding guidance |
 | `documentation` | Documentation | Documentation | Important | Checks for durable documentation roots such as docs/, specs/, and prds/ |
+| `ubiquitous-language` | Ubiquitous language | Documentation | Important | Detects CONTEXT.md or UBIQUITOUS_LANGUAGE.md at the root (preferred) or in a nested project directory; ignores docs/ and vendored trees; scores substance |
 | `repo-structure` | Repo structure | Infrastructure | Important | Detects monorepo/submodule setup, source organization, root file ratio |
 | `source-of-truth` | Source of truth | Organization | Important | Flags single-source-of-truth violations across 6 semantic groups |
 | `testing-provision` | Testing provision | Quality | Important | Detects test files/directories, test isolation, and testing documentation |
@@ -217,6 +220,9 @@ Harnix is built and maintained by [Anakot](https://anakot.ai/haas) as part of th
 
 - [Harness Engineering](https://anakot.ai/haas) — the concept behind Harnix
 - [AGENTS.md specification](https://github.com/agentsmd/agents.md) — the open format for AI coding agent guidance files
+- [Ubiquitous language](https://www.dremio.com/wiki/ubiquitous-language/) — shared domain vocabulary from [domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design)
+- [`domain-modeling` skill](https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling) by Matt Pocock
+- [Ubiquitous Language: the Good, the Bad, and the Lessons](https://dev.to/upslide/ubiquitous-language-the-good-the-bad-and-the-lessons-c2p) by Fabien Sinquin
 - [Contributor Covenant](https://www.contributor-covenant.org/) — the code of conduct standard used by this project
 
 ## License
