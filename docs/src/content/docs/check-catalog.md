@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 9 built-in checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 10 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 9 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
+Harnix ships with 10 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
 
 ## Active checks
 
@@ -15,6 +15,7 @@ Harnix ships with 9 built-in checks grouped into 6 categories. Each check produc
 | [Root README](#root-readme) | `root-readme` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Ubiquitous language](#ubiquitous-language) | `ubiquitous-language` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Design guidance](#design-guidance) | `design-md` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">nice-to-have</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Source of truth](#source-of-truth) | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
@@ -191,6 +192,44 @@ This check does not score whether the code still matches the terms.
 
 - [`domain-modeling` skill](https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling) by Matt Pocock
 - [Ubiquitous Language: the Good, the Bad, and the Lessons](https://dev.to/upslide/ubiquitous-language-the-good-the-bad-and-the-lessons-c2p) by Fabien Sinquin
+
+### Design guidance
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">nice-to-have</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+Checks for a root-level `DESIGN.md`. [DESIGN.md](https://github.com/google-labs-code/design.md) is a portable visual-identity format for coding agents: YAML design tokens in the front matter, plus markdown rationale in the body. Tokens are the normative values; the prose explains why those values exist and how to apply them.
+
+This check is presence plus spec *shape*, not a DESIGN.md linter. It does not run [`@google/design.md lint`](https://github.com/google-labs-code/design.md), check WCAG contrast, resolve `{token}` references, validate token *values*, or score whether the file matches the implemented UI. A single known schema key such as `name` or `version` counts as front matter, even when no color or typography tokens are present.
+
+Only the exact filename `DESIGN.md` at the scanned repository root counts. Nested copies (`apps/web/DESIGN.md`) and differently cased names (`design.md`) are ignored.
+
+#### What it checks
+
+- Presence of `DESIGN.md` at the repository root
+- YAML front matter that parses as a mapping and includes at least one DESIGN.md schema key (`version`, `name`, `description`, `omitted`, `colors`, `typography`, `rounded`, `spacing`, `components`). Values are not type-checked.
+- Canonical `##` sections from the spec, including aliases: Overview (Brand & Style), Colors, Typography, Layout (Layout & Spacing), Elevation & Depth (Elevation), Shapes, Components, Do's and Don'ts. Headings inside fenced code blocks are ignored.
+
+#### Scoring
+
+| Condition | Score |
+|---|---|
+| No root `DESIGN.md` | 0 |
+| Root file exists but could not be read | 0.1 |
+| Root file exists but has neither schema-key front matter nor canonical sections | 0.4 |
+| Schema-key front matter *or* canonical sections, but not both | 0.7 |
+| Schema-key front matter *and* at least one canonical section | 1.0 |
+
+#### Further reading
+
+- [The DESIGN.md specification](https://stitch.withgoogle.com/docs/design-md/specification)
+- [google-labs-code/design.md](https://github.com/google-labs-code/design.md)
+- [Atlassian’s DESIGN.md is here: what we learned testing portable design context in practice](https://www.atlassian.com/blog/how-we-build/atlassians-design-md-is-here-what-we-learned-testing-portable-design-context-in-practice) by Kylor Hall and Andrew Campbell
+- [The DESIGN.md Workflow: How Google Stitch + Claude Code Quietly Changed the Design-to-Code Handoff](https://www.designsystemscollective.com/the-design-md-workflow-how-google-stitch-claude-code-quietly-changed-the-design-to-code-handoff-c4213f97ed8f) by Abhi Chatterjee
+- [What is design.md, and how do I use it?](https://medium.com/@jackanglesea/what-is-design-md-and-how-do-i-use-it-a450bc8376e0) by Jack Anglesea
 
 ### Repo structure
 

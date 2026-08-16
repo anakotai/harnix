@@ -5,7 +5,7 @@ description: Run your first Harnix scan and understand the generated outputs.
 
 ## What Harnix does
 
-Harnix scans a repository for harness readiness signals such as agent guidance, documentation, ubiquitous language, CI, and testing setup.
+Harnix scans a repository for harness readiness signals such as agent guidance, documentation, ubiquitous language, DESIGN.md, CI, and testing setup.
 
 Each scan produces:
 

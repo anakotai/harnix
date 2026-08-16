@@ -1,0 +1,15 @@
+id: design-md
+name: Design guidance
+category: documentation
+tier: nice-to-have
+description: >-
+  Detects a root DESIGN.md and scores whether it has DESIGN.md spec
+  shape: YAML front matter with a known schema key and canonical
+  markdown sections.
+tags:
+  - design
+  - DESIGN.md
+  - design-system
+  - visual-identity
+  - documentation
+applicableTo: all

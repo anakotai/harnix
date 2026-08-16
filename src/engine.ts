@@ -89,6 +89,13 @@ async function loadCheckFunction(dirName: string): Promise<(ctx: import("./types
     await fs.access(compiledPath);
     checkPath = compiledPath;
   } catch {
+    const canLoadTypescript = process.env.VITEST === "true";
+    if (!canLoadTypescript) {
+      throw new Error(
+        `Compiled check not found for "${dirName}". Run "npm run build" first.`
+      );
+    }
+
     try {
       await fs.access(sourcePath);
       checkPath = sourcePath;
