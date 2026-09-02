@@ -1,6 +1,6 @@
 {
   "name": "harnix",
-  "version": "0.18.0",
+  "version": "0.20.1",
   "description": "Open-source harness readiness scanner",
   "type": "module",
   "bin": {
