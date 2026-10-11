@@ -15,6 +15,7 @@
     "sharp": "^0.35.5"
   },
   "overrides": {
-    "svgo": "^4.0.2"
+    "svgo": "^4.0.2",
+    "postcss-nested": "^8.0.1"
   }
 }
