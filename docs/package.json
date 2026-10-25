@@ -17,6 +17,7 @@
   "overrides": {
     "svgo": "^4.0.2",
     "postcss-nested": "^8.0.1",
-    "vite": "8.2.4"
+    "vite": "8.2.4",
+    "undici": "8.12.2"
   }
 }
