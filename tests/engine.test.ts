@@ -28,11 +28,11 @@ describe("tierWeight", () => {
 });
 
 describe("scanRepository", () => {
-  it("discovers and runs all 10 checks on a fixture repo", async () => {
+  it("discovers and runs all 11 checks on a fixture repo", async () => {
     const result = await scanRepository(path.join(FIXTURES, "pass-all"), {
       recursive: false,
     });
-    expect(result.checks.length).toBe(10);
+    expect(result.checks.length).toBe(11);
     expect(result.overallScore).toBeGreaterThan(0);
     expect(result.overallScore).toBeLessThanOrEqual(1);
     expect(result.repoType).toBe("software");
@@ -54,7 +54,7 @@ describe("scanRepository", () => {
       recursive: false,
     });
     expect(result.checks.find((c) => c.id === "agents-md")).toBeUndefined();
-    expect(result.checks.length).toBe(9);
+    expect(result.checks.length).toBe(10);
   });
 
   it("applies repo type override to root scan only", async () => {
@@ -151,7 +151,7 @@ describe("tier-weighted scoring", () => {
       recursive: false,
     });
     // Verify the score is a weighted average, not a simple mean
-    const checks = result.checks;
+    const checks = result.checks.filter((check) => check.status !== "not-assessed");
     const weightedSum = checks.reduce((s, c) => s + tierWeight(c.tier) * c.score, 0);
     const totalWeight = checks.reduce((s, c) => s + tierWeight(c.tier), 0);
     const weightedAvg = weightedSum / totalWeight;

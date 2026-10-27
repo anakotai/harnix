@@ -30,7 +30,7 @@ npx harnix scan /path/to/repository
 The console summary includes:
 
 - **Overall score and qualitative band** — a percentage and label such as "Good" (51–75%) or "Excellent" (76–100%)
-- **Per-check score with status symbols** — `✓` for pass (≥75%), `△` for partial (25–74%), `✗` for fail (<25%)
+- **Per-check score with status symbols** — `✓` for pass (≥75%), `△` for partial (25–74%), `✗` for fail (<25%), `–` and N/A for not assessed (no applicable supported categories; excluded from scoring)
 - **Top recommendations** — prioritized by check tier (critical first) and then by lowest score within each tier
 - **Report paths** — file locations for the generated Markdown and HTML reports
 

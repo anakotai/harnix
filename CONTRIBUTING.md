@@ -129,7 +129,9 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
 }
 ```
 
-The check function receives a `ScanContext` and must return a `CheckResult`. The score must be a float between `0.0` (complete fail) and `1.0` (complete pass).
+The check function receives a `ScanContext` and must return a `CheckResult`. The score must be a float between `0.0` (complete fail) and `1.0` (complete pass). When support or applicability cannot establish any assessable categories, use `status: "not-assessed"` with a numeric placeholder score of `0`, a reason, and no missing-evidence recommendations. These results appear as N/A and are excluded from aggregate/category scores and evaluated counts. Existing checks keep their current scoring behavior.
+
+For an example of bounded, local-only guidance discovery, see [operating command discoverability](docs/operating-commands.md). Cover unsupported inputs, no applicable categories, read failures, inventory/noise exclusions, symlink containment, and deterministic traversal limits in addition to pass/fail/partial cases. Commands in guidance are evidence only: never execute or fetch them during assessment.
 
 ### 4. Verify
 
@@ -153,6 +155,8 @@ Use the existing test fixtures in `tests/fixtures/` or create new ones as needed
 ## Testing
 
 Harnix uses [Vitest](https://vitest.dev/) for testing.
+
+Keep temporary verification artifacts and fixtures under the gitignored `./tmp` directory. Run lint and tests sequentially: temporary fixture directories can be created and removed while tests run, and concurrent ESLint traversal can race with that cleanup.
 
 ### Running tests
 

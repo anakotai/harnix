@@ -199,14 +199,17 @@ The percentage score maps to a qualitative band:
 
 Checks are grouped by category, and each category's score is also calculated using the tier-weighted formula across its constituent checks.
 
+Checks with no applicable supported categories appear as **not assessed (N/A)** and contribute neither score nor weight, including to category averages. With no evaluated checks the local score is unavailable and the report warns that nothing was evaluated. The Node-focused `operating-commands` check was added in 0.22.0; existing check scores are unchanged. Compare scores only across the same Harnix version and effective check set, since catalog or heuristic changes can move aggregates without repository changes.
+
 ## Check Catalog
 
-Harnix ships with 10 built-in checks:
+Harnix ships with 11 built-in checks:
 
 | ID | Name | Category | Tier | Description |
 |---|---|---|---|---|
 | `agents-md` | Agents guidance | Agent Readiness | Critical | Detects AGENTS.md or CLAUDE.md; scores content length and substance |
 | `agent-skills` | Agent skills | Agent Readiness | Important | Detects skills in supported roots (`skills/`, `.skills/`, `.claude/skills/`, `.codex/skills/`, `.agent/skills/`, `.github/skills/`), validates SKILL.md frontmatter, flags hidden Markdown comments |
+| `operating-commands` | Operating commands | Agent Readiness | Important | Software-only; detects applicable Node setup, verification, build, and run examples in root or linked canonical guidance ([patterns and limits](docs/operating-commands.md)) |
 | `ci-pipeline` | CI pipeline | Quality Gates | Important | Detects CI/CD config for GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis, Azure Pipelines |
 | `root-readme` | Root README | Documentation | Critical | Checks for a substantive root README.md or README.txt with onboarding guidance |
 | `documentation` | Documentation | Documentation | Important | Checks for durable documentation roots such as docs/, specs/, and prds/ |

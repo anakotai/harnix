@@ -35,7 +35,7 @@ Harness engineering closes this gap by making expectations explicit and machine-
 
 ## How Harnix fits
 
-Harnix gives teams a repeatable, repo-level readiness assessment with concrete recommendations. It runs nine checks across six categories of readiness signals and produces a scored report with actionable next steps.
+Harnix gives teams a repeatable, repo-level readiness assessment with concrete recommendations. It runs the [built-in check catalog](/check-catalog/) across six categories of readiness signals and produces a scored report with actionable next steps.
 
 Use it to:
 

@@ -17,7 +17,8 @@ export interface CheckResult {
   category: string;
   tier: 'critical' | 'important' | 'nice-to-have';
   score: number;
-  status: 'pass' | 'partial' | 'fail';
+  /** Not-assessed results retain a numeric placeholder score but carry no weight. */
+  status: 'pass' | 'partial' | 'fail' | 'not-assessed';
   summary: string;
   details: string;
   whyThisMatters: string;

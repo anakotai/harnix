@@ -41,7 +41,8 @@ export function overallBand(scorePercent: number): string {
   return SCORE_BANDS.poor.label;
 }
 
-function symbolForStatus(status: "pass" | "partial" | "fail"): string {
+function symbolForStatus(status: CheckResult["status"]): string {
+  if (status === "not-assessed") return "–";
   if (status === "pass") {
     return "✓";
   }
@@ -51,7 +52,8 @@ function symbolForStatus(status: "pass" | "partial" | "fail"): string {
   return "✗";
 }
 
-function colorSymbolForStatus(status: "pass" | "partial" | "fail"): string {
+function colorSymbolForStatus(status: CheckResult["status"]): string {
+  if (status === "not-assessed") return symbolForStatus(status);
   if (status === "pass") {
     return styleAnsi(symbolForStatus(status), ANSI_GREEN);
   }
@@ -63,6 +65,14 @@ function colorSymbolForStatus(status: "pass" | "partial" | "fail"): string {
 
 function formatPercent(score: number): string {
   return `${Math.round(score * 100)}%`;
+}
+
+function checkScore(check: CheckResult): string {
+  return check.status === "not-assessed" ? "N/A" : formatPercent(check.score);
+}
+
+function evaluatedCount(checks: CheckResult[]): number {
+  return checks.filter((check) => check.status !== "not-assessed").length;
 }
 
 function formatRecursiveKind(kind: "directory" | "submodule" | "workspace"): string {
@@ -116,6 +126,7 @@ function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
   const categories = new Map<string, { category: string; weightedSum: number; totalWeight: number; count: number; pass: number; partial: number; fail: number }>();
 
   for (const check of checks) {
+    if (check.status === "not-assessed") continue;
     const existing = categories.get(check.category) ?? {
       category: check.category,
       weightedSum: 0,
@@ -155,6 +166,7 @@ function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
 function statusCounts(checks: CheckResult[]): { pass: number; partial: number; fail: number } {
   return checks.reduce(
     (accumulator, check) => {
+      if (check.status === "not-assessed") return accumulator;
       accumulator[check.status] += 1;
       return accumulator;
     },
@@ -187,7 +199,7 @@ function recommendationsFromChecks(
   scanTargetPath: string
 ): RankedRecommendation[] {
   return checks
-    .filter((check) => Array.isArray(check.recommendations) && check.recommendations.length > 0)
+    .filter((check) => check.status !== "not-assessed" && Array.isArray(check.recommendations) && check.recommendations.length > 0)
     .map((check) => ({
       id: check.id,
       recommendation: check.recommendations[0],
@@ -278,7 +290,7 @@ function displayScore(score: number | null | undefined): string {
 }
 
 function scorePair(checks: CheckResult[], overallScore: number, options: ReportOptions): { local: string; rollup: string } {
-  const local = options.localScore !== undefined ? options.localScore : checks.length ? overallScore : null;
+  const local = options.localScore !== undefined ? options.localScore : evaluatedCount(checks) ? overallScore : null;
   const rollup = options.rollupScore !== undefined ? options.rollupScore : local;
   return { local: displayScore(local), rollup: displayScore(rollup) };
 }
@@ -292,9 +304,9 @@ function collectRecursiveEntries(recursiveScans: RecursiveScanInput[], parentPat
       continue;
     }
     const findings = (scan.result.checks ?? []) as CheckResult[];
-    const local = scan.result.localScore !== undefined ? scan.result.localScore : findings.length ? scan.result.overallScore : null;
+    const local = scan.result.localScore !== undefined ? scan.result.localScore : evaluatedCount(findings) ? scan.result.overallScore : null;
     const rollup = scan.result.rollupScore !== undefined ? scan.result.rollupScore : local;
-    entries.push({ kind: scan.kind, path: fullPath, local: displayScore(local), rollup: displayScore(rollup), checks: findings.length, findings });
+    entries.push({ kind: scan.kind, path: fullPath, local: displayScore(local), rollup: displayScore(rollup), checks: evaluatedCount(findings), findings });
     entries.push(...collectRecursiveEntries(scan.result.recursiveScans ?? [], fullPath));
   }
   return entries;
@@ -306,7 +318,7 @@ function childMarkdown(entries: RecursiveEntry[]): string {
     if ("error" in entry) return `${heading}\n\nScan failed: ${escapeMarkdownText(entry.error)}\n`;
     const findings = entry.findings.map((check) => [
       `### ${check.name} (${check.id})`,
-      `Category: ${formatCategoryLabel(check.category)}; Tier: ${check.tier}; Score: ${formatPercent(check.score)} (${check.status})`,
+      `Category: ${formatCategoryLabel(check.category)}; Tier: ${check.tier}; Score: ${checkScore(check)} (${check.status})`,
       check.summary, check.details, `Why this matters: ${check.whyThisMatters}`,
       "References:", ...check.references.map((ref) => `- ${ref}`),
       "Recommendations:", ...check.recommendations.map((rec) => `- ${rec}`)
@@ -325,7 +337,7 @@ function childHtml(entries: RecursiveEntry[]): string {
     if ("error" in entry) return `${heading}<p>Scan failed: ${escapeHtml(entry.error)}</p>`;
     return `${heading}<p>Local score: ${escapeHtml(entry.local)}</p><p>Rollup score: ${escapeHtml(entry.rollup)}</p>` +
       entry.findings.map((check) => `<details class="check-detail"><summary>${escapeHtml(check.name)} (${escapeHtml(check.id)})</summary><div class="check-body">
-        <p>Category: ${escapeHtml(formatCategoryLabel(check.category))}; Tier: ${escapeHtml(check.tier)}; Score: ${formatPercent(check.score)} (${escapeHtml(check.status)})</p>
+        <p>Category: ${escapeHtml(formatCategoryLabel(check.category))}; Tier: ${escapeHtml(check.tier)}; Score: ${checkScore(check)} (${escapeHtml(check.status)})</p>
         <p>${escapeHtml(check.summary)}</p><p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
         <p>Why this matters: ${escapeHtml(check.whyThisMatters)}</p>
         <p>References</p><ul>${check.references.map((ref) => `<li>${escapeHtml(ref)}</li>`).join("")}</ul>
@@ -379,8 +391,9 @@ export function buildMarkdownReport(
     ...versionLine,
     `- Generated: ${timestamp}`,
     `- Scanned path: \`${scannedPath}\``,
-    `- Checks evaluated: ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)`,
-    ...(checks.length === 0
+    `- Checks evaluated: ${evaluatedCount(checks)} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)`,
+    ...(checks.some((check) => check.status === "not-assessed") ? [`- Not assessed: ${checks.length - evaluatedCount(checks)}`] : []),
+    ...(evaluatedCount(checks) === 0
       ? [
           "",
           "> Warning: no checks were evaluated. Review `--only` / `--skip` filters and repo type applicability.",
@@ -422,7 +435,7 @@ export function buildMarkdownReport(
     lines.push(`### ${check.name} (\`${check.id}\`)`);
     lines.push(`- Category: ${formatCategoryLabel(check.category)}`);
     lines.push(`- Tier: ${check.tier}`);
-    lines.push(`- Score: ${formatPercent(check.score)} (${check.status})`);
+    lines.push(`- Score: ${checkScore(check)} (${check.status})`);
     lines.push(`- Summary: ${check.summary}`);
     lines.push("");
     lines.push(check.details);
@@ -506,7 +519,7 @@ export function buildHtmlReport(
   <td>${escapeHtml(check.name)}</td>
   <td>${escapeHtml(formatCategoryLabel(check.category))}</td>
   <td>${escapeHtml(check.tier)}</td>
-  <td>${escapeHtml(formatPercent(check.score))}</td>
+  <td>${escapeHtml(checkScore(check))}</td>
   <td>${escapeHtml(check.summary)}</td>
 </tr>`;
     })
@@ -548,17 +561,17 @@ export function buildHtmlReport(
   <summary>
     <span class="check-status">${escapeHtml(symbolForStatus(check.status))}</span>
     <span class="check-name">${escapeHtml(check.name)}</span>
-    <span class="check-summary">${escapeHtml(formatPercent(check.score))} • ${escapeHtml(check.status)}</span>
+    <span class="check-summary">${escapeHtml(checkScore(check))} • ${escapeHtml(check.status)}</span>
   </summary>
   <div class="check-body">
     <p><strong>ID:</strong> <code>${escapeHtml(check.id)}</code></p>
     <p><strong>Category:</strong> ${escapeHtml(formatCategoryLabel(check.category))}</p>
     <p><strong>Tier:</strong> ${escapeHtml(check.tier)}</p>
-    <p><strong>Score:</strong> ${escapeHtml(formatPercent(check.score))} (${escapeHtml(check.status)})</p>
-    <div class="score-track" aria-hidden="true">
+    <p><strong>Score:</strong> ${escapeHtml(checkScore(check))} (${escapeHtml(check.status)})</p>
+    ${check.status === "not-assessed" ? "" : `<div class="score-track" aria-hidden="true">
       <div class="score-fill" style="width: ${checkPercent}%"></div>
     </div>
-    <span class="metric-label">${checkPercent}%</span>
+    <span class="metric-label">${checkPercent}%</span>`}
     <p><strong>Summary:</strong> ${escapeHtml(check.summary)}</p>
     <p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
   ${
@@ -810,9 +823,10 @@ ${recommendationItems}
     <div class="summary-card">
       <p><strong>Local score:</strong> ${escapeHtml(scores.local)}</p>
       <p><strong>Rollup score:</strong> ${escapeHtml(scores.rollup)}</p>
-      <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+      <p><strong>Checks evaluated:</strong> ${evaluatedCount(checks)} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
+      ${checks.some((check) => check.status === "not-assessed") ? `<p><strong>Not assessed:</strong> ${checks.length - evaluatedCount(checks)}</p>` : ""}
       ${
-        checks.length === 0
+        evaluatedCount(checks) === 0
           ? `<p class="meta"><strong>Warning:</strong> no checks were evaluated. Review <code>--only</code> / <code>--skip</code> filters and repo type applicability.</p>`
           : ""
       }
@@ -997,7 +1011,7 @@ export function printConsoleReport(
   }
   console.log(`${bold("Local score:")} ${scores.local}`);
   console.log(`${bold("Rollup score:")} ${scores.rollup}`);
-  if (checks.length === 0) {
+  if (evaluatedCount(checks) === 0) {
     console.log(
       "Warning: no checks were evaluated (check --only/--skip filters and repo type applicability)."
     );
@@ -1020,7 +1034,7 @@ export function printConsoleReport(
   for (const check of checks) {
     const symbol = colorSymbolForStatus(check.status);
     const name = bold(check.name.padEnd(18, " "));
-    const percent = formatPercent(check.score).padStart(4, " ");
+    const percent = checkScore(check).padStart(4, " ");
     console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
 
     if (verbose) {

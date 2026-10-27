@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 10 built-in checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 11 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 10 built-in checks grouped into 6 categories. Each check produces a score between 0 and 1.0, which is then weighted by its tier during overall scoring. The table below summarizes every check; detailed descriptions and scoring rules follow.
+Harnix ships with 11 built-in checks grouped into 6 categories. Each assessed check produces a score between 0 and 1.0, weighted by its tier during overall scoring. Not-assessed checks appear as N/A and carry no weight. The `operating-commands` entry was introduced in 0.22.0; compare scores only within the same Harnix version and effective check set.
 
 ## Active checks
 
@@ -11,6 +11,7 @@ Harnix ships with 10 built-in checks grouped into 6 categories. Each check produ
 |---|---|---|---|---|
 | [Agents guidance](#agents-guidance) | `agents-md` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Agent skills](#agent-skills) | `agent-skills` | <span class="check-badge check-badge--category">agent-readiness</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Operating commands](#operating-commands) | `operating-commands` | agent-readiness | important | software (Node V1) |
 | [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Root README](#root-readme) | `root-readme` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
@@ -21,6 +22,23 @@ Harnix ships with 10 built-in checks grouped into 6 categories. Each check produ
 | [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 
 ## Check details
+
+### Operating commands
+
+Detects concrete command examples in fenced or inline code, rather than keyword-only prose. It reads root AGENTS.md, CLAUDE.md, README.md/README.txt, and CONTRIBUTING.md, plus one hop of relative Markdown links to at most five unique files. Paths are resolved from the referring file, fragments removed, realpaths deduplicated, and candidates sorted lexically. Linked targets must remain inside the scan root and satisfy inventory/noise eligibility. External URLs, absolute paths, images, query strings, and harness imports are excluded. Read failures and traversal limits are disclosed.
+
+V1 requires the target's own readable JSON-object package.json. Setup applies with dependencies, devDependencies, or optionalDependencies; verification with a test script or local test suite; build with a build script; run with start/dev scripts. Applicable categories have equal weight. Unsupported ecosystems and targets with no applicable categories are not assessed (N/A), excluded from scoring. Nested packages and vendored tests do not establish a local suite.
+
+Recognized examples:
+
+- Setup: `npm install`, `npm i`, `npm ci`, `pnpm install`, `pnpm i`, `yarn`, `yarn install`, `bun install`, `bun i`; package operands and global installs are excluded.
+- Verification: `npm test` or `npm run test`; pnpm/yarn/Bun allow `test` with or without `run`.
+- Build: `npm run build`; pnpm/yarn/Bun allow `build` with or without `run`.
+- Run: `npm start`, `npm run start`, `npm run dev`; pnpm/yarn/Bun allow `start`/`dev` with or without `run`.
+
+An optional `$` prompt, simple trailing flags, script arguments after `--`, and `&&`, `||`, or `;` segments are supported. Angle/brace/environment-variable/TODO/CHANGEME/ellipsis placeholders are ignored. This is bounded pattern recognition, not general shell or Markdown parsing; working-directory changes, wrappers, custom scripts, and direct tool invocations are not understood. Commands are never executed, fetched, or validated against script definitions, and their presence does not prove they work.
+
+Keep exact examples in canonical CONTRIBUTING.md or a linked page; no duplication in AGENTS.md is required. Existing agents-md, root-readme, and testing-provision scores still measure guidance structure, onboarding signals, and testing provisions. See the [full pattern and traversal contract](https://github.com/anakotai/harnix/blob/main/docs/operating-commands.md).
 
 ### Agents guidance
 

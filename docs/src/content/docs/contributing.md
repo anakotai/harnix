@@ -49,6 +49,8 @@ Tests live in `tests/` and use fixture repositories under `tests/fixtures/` that
 3. Rebuild with `npm run build` and verify the check is discovered by running `harnix scan .`
 4. Add tests in `tests/checks/<check-id>.test.ts`
 
+Checks may return `status: "not-assessed"` with a placeholder score of `0` when there are no applicable supported categories. Give a clear reason and avoid missing-evidence recommendations; these results display as N/A and are excluded from aggregate/category scores and evaluated counts. Keep existing check behavior stable. For command discovery, test prose versus code, canonical guidance, bounded links, inventory/noise eligibility, symlink containment, read failures, and unsupported/no-category targets. Never execute example commands during a scan.
+
 ## Contribution quality bar
 
 - Keep changes focused and testable

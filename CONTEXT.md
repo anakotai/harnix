@@ -77,7 +77,7 @@ A fixed importance class on a check (`critical`, `important`, `nice-to-have`) th
 _Avoid_: severity (security), priority (issue tracker), user-configurable weight
 
 **Check status**:
-A coverage-strength label derived from a check score (`pass` / `partial` / `fail` via fixed percentage thresholds). Indicates how completely that check’s expected signals were found by heuristics — not certification that the harness works or that agents will succeed.
+A coverage-strength label derived from a check score (`pass` / `partial` / `fail` via fixed percentage thresholds). `not-assessed` means no applicable supported categories could be established; it displays as N/A and carries no score weight or missing-evidence recommendations. Indicates how completely that check’s expected signals were found by heuristics — not certification that the harness works or that agents will succeed.
 _Avoid_: certification, quality pass, CI gate (unless an explicit fail-under threshold is added later), agent-ready stamp
 
 **Score band**:

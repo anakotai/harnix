@@ -236,6 +236,37 @@ describe("printConsoleReport", () => {
 });
 
 describe("report run identity", () => {
+  it("shows not-assessed as N/A and excludes it from counts and categories", () => {
+    const unassessed: CheckResult = { ...sampleChecks[0], id: "operating-commands", name: "Operating commands", score: 0,
+      status: "not-assessed", summary: "Not assessed: unsupported ecosystem", recommendations: ["SHOULD_NOT_BE_RANKED"] };
+    const checks = [sampleChecks[0], unassessed];
+    const md = buildMarkdownReport("/test", checks, 1, "now");
+    expect(md).toContain("Checks evaluated: 1 (1 pass, 0 partial, 0 fail)");
+    expect(md).toContain("Not assessed: 1");
+    expect(md).toContain("Score: N/A (not-assessed)");
+    expect(md).toContain("| Agent Readiness | 1 | 100% | 1 | 0 | 0 |");
+    expect(md.split("## Prioritized Recommendations")[1]).not.toContain("SHOULD_NOT_BE_RANKED");
+    const html = buildHtmlReport("/test", checks, 1, "now");
+    expect(html).toContain("N/A (not-assessed)");
+    expect(html).toContain("Checks evaluated:</strong> 1 (1 pass, 0 partial, 0 fail)");
+    expect(html.split("<h2>Prioritized Recommendations</h2>")[1]).not.toContain("SHOULD_NOT_BE_RANKED");
+    const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      printConsoleReport("/test", [unassessed], 0);
+      expect(spy.mock.calls.some(([line]) => String(line).includes("N/A"))).toBe(true);
+      expect(spy.mock.calls.some(([line]) => String(line).includes("no checks were evaluated"))).toBe(true);
+      expect(spy.mock.calls.some(([line]) => String(line).includes("SHOULD_NOT_BE_RANKED"))).toBe(false);
+    } finally { spy.mockRestore(); }
+    expect(buildMarkdownReport("/test", [unassessed], 0, "now")).toContain("no checks were evaluated");
+    expect(buildHtmlReport("/test", [unassessed], 0, "now")).toContain("no checks were evaluated");
+    const childOptions = { recursiveScans: [{ path: "child", kind: "directory" as const,
+      result: { checks: [unassessed], overallScore: 0, localScore: null, rollupScore: null } }] };
+    const childMarkdown = buildMarkdownReport("/test", [], 0, "now", childOptions);
+    expect(childMarkdown).toContain("Score: N/A (not-assessed)");
+    expect(childMarkdown).toContain("Local score: Unavailable");
+    expect(buildHtmlReport("/test", [], 0, "now", childOptions)).toContain("Score: N/A (not-assessed)");
+  });
+
   it("includes Harnix version in markdown when provided", () => {
     const md = buildMarkdownReport("/test/repo", sampleChecks, 0.5, "20260305T143045", {
       harnixVersion: "0.18.0",

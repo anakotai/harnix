@@ -249,8 +249,9 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
         recursiveScans.push(entry);
       }
     }
-    const weightedSum = checks.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
-    const totalWeight = checks.reduce((sum, check) => sum + tierWeight(check.tier), 0);
+    const evaluated = checks.filter((check) => check.status !== "not-assessed");
+    const weightedSum = evaluated.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
+    const totalWeight = evaluated.reduce((sum, check) => sum + tierWeight(check.tier), 0);
     const localScore = totalWeight > 0 ? weightedSum / totalWeight : null;
     const rollupScore = calculateRollup(localScore, recursiveScans);
     return { absolutePath: node.absolutePath, repoType, gitInfo, checks, recursiveScans,

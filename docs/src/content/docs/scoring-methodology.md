@@ -23,13 +23,15 @@ Per-check statuses are derived from percentage thresholds:
 
 ## Local and rollup scores
 
-Local score is the fixed tier-weighted mean of evaluated checks, using weights 3/2/1 below. Skipped and inapplicable checks are excluded. No evaluated checks means unavailable, with no band; it does not mean 0%.
+Local score is the fixed tier-weighted mean of evaluated checks, using weights 3/2/1 below. Skipped, inapplicable, and not-assessed checks are excluded from the evaluated set and category averages. Not-assessed results display as N/A with a reason. No evaluated checks means unavailable, with no band; it does not mean 0%.
 
 Rollup equally averages the available local score and successfully scored direct children's effective scores (their rollup, otherwise local). Failed/unscanned targets and unavailable scores are omitted. Descendants influence the parent through their direct ancestor only. A leaf's rollup equals its local score. With no available local or child scores, rollup is unavailable. A target without local checks can still have a rollup from children.
 
 For root local 80%, child rollup 40%, and child local 60%, root rollup is 60%. Child size and importance are not weighted. Both scores are labeled separately in all report formats. The engine retains numeric `overallScore` as `rollupScore ?? localScore ?? 0` for compatibility; consumers must use the nullable fields to distinguish unavailable from zero.
 
 Every non-noise subdirectory is a scan target by default, including ordinary source/docs directories. Root-oriented checks can score these paths low and reduce rollup. This coverage expansion is deliberate; compare assessments using the same Harnix version, depth, and effective check set. `--depth 0` assesses only the root. Markdown/HTML retain full child findings, recommendations, references, and path-attributed errors; report size grows with target count.
+
+The `operating-commands` check, introduced in 0.22.0, equally weights only applicable supported command categories. Unsupported ecosystems and Node targets without applicable categories are not assessed. Existing check scores are unchanged. Compare scores only for the same Harnix version and effective check set; catalog and heuristic changes may change aggregates without repository changes.
 
 ## Qualitative bands
 

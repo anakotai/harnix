@@ -44,7 +44,7 @@ See the [Contributing](/contributing/) page for code style and testing guideline
 
 Harnix classifies repositories as either `software` or `non-software`. Detection is automatic: if the repository contains files like `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `pom.xml`, `build.gradle`, `Makefile`, or source directories (`src/`, `lib/`), it is classified as `software`. All other repositories default to `non-software`.
 
-Three checks (`ci-pipeline`, `testing-provision`, `repo-structure`) only apply to software repositories and are automatically skipped for non-software repos. You can override detection with the `--type` flag or the `type` key in `.harnix.yaml`.
+Four checks (`ci-pipeline`, `testing-provision`, `repo-structure`, `operating-commands`) only apply to software repositories and are automatically skipped for non-software repos. Operating command discovery currently supports targets with their own Node package.json; unsupported targets are not assessed (N/A), excluded from score averages. You can override detection with the `--type` flag or the `type` key in `.harnix.yaml`.
 
 ## What output formats does Harnix produce?
 

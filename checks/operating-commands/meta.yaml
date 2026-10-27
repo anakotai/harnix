@@ -1,0 +1,10 @@
+id: operating-commands
+name: Operating commands
+category: agent-readiness
+tier: important
+description: Detects discoverable setup, verification, build, and run command examples in local guidance for Node projects.
+tags:
+  - guidance
+  - commands
+  - node
+applicableTo: software
