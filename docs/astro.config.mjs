@@ -30,6 +30,7 @@ export default defineConfig({
 						{ slug: 'cli-reference' },
 						{ slug: 'configuration' },
 						{ slug: 'scoring-methodology' },
+						{ slug: 'json-reports' },
 						{ slug: 'check-catalog' }
 					]
 				},

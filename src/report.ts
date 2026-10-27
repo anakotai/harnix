@@ -1,8 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { CheckResult } from "./types.js";
+import type { CheckResult, RepoType } from "./types.js";
 import { SCORE_BANDS } from "./types.js";
 import { tierWeight } from "./engine.js";
+import type { ScanResult } from "./engine.js";
+import { JSON_REPORT_SCHEMA_VERSION, jsonReportSchema } from "./schemas/report.js";
+import type { JsonReport } from "./schemas/report.js";
 
 const ANSI_RESET = "\u001b[0m";
 const ANSI_BOLD = "\u001b[1m";
@@ -103,13 +106,23 @@ function padTwo(value: number): string {
   return String(value).padStart(2, "0");
 }
 
+function compareText(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
+  return 0;
+}
+
 export function reportTimestamp(now = new Date()): string {
-  const year = now.getFullYear();
-  const month = padTwo(now.getMonth() + 1);
-  const day = padTwo(now.getDate());
-  const hours = padTwo(now.getHours());
-  const minutes = padTwo(now.getMinutes());
-  const seconds = padTwo(now.getSeconds());
+  const year = now.getUTCFullYear();
+  const month = padTwo(now.getUTCMonth() + 1);
+  const day = padTwo(now.getUTCDate());
+  const hours = padTwo(now.getUTCHours());
+  const minutes = padTwo(now.getUTCMinutes());
+  const seconds = padTwo(now.getUTCSeconds());
   return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 }
 
@@ -159,7 +172,7 @@ function categoryBreakdown(checks: CheckResult[]): CategoryEntry[] {
       if (scoreDelta !== 0) {
         return scoreDelta;
       }
-      return a.category.localeCompare(b.category);
+      return compareText(a.category, b.category);
     });
 }
 
@@ -254,12 +267,12 @@ function topRecommendations(
       return scoreDelta;
     }
 
-    const pathDelta = a.scanTargetPath.localeCompare(b.scanTargetPath);
+    const pathDelta = compareText(a.scanTargetPath, b.scanTargetPath);
     if (pathDelta !== 0) {
       return pathDelta;
     }
 
-    return a.name.localeCompare(b.name);
+    return compareText(a.name, b.name);
   });
 
   return ranked.slice(0, 5);
@@ -348,11 +361,11 @@ function childHtml(entries: RecursiveEntry[]): string {
 
 function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntry[] {
   return collectRecursiveEntries(recursiveScans).sort((a, b) => {
-    const pathDelta = a.path.localeCompare(b.path);
+    const pathDelta = compareText(a.path, b.path);
     if (pathDelta !== 0) {
       return pathDelta;
     }
-    return formatRecursiveKind(a.kind).localeCompare(formatRecursiveKind(b.kind));
+    return compareText(formatRecursiveKind(a.kind), formatRecursiveKind(b.kind));
   });
 }
 
@@ -361,6 +374,125 @@ export interface ReportOptions {
   harnixVersion?: string;
   localScore?: number | null;
   rollupScore?: number | null;
+  /** ISO 8601 UTC instant shared by the filenames, Markdown, HTML, and JSON. */
+  generatedAt?: string;
+  /** Complete engine result, required when jsonReport is true. */
+  scanResult?: ScanResult;
+  /** Effective options after CLI/config precedence, exported in the JSON report. */
+  runOptions?: EffectiveRunOptions;
+  /** Opt in to the machine-readable JSON artifact. */
+  jsonReport?: boolean;
+}
+
+export interface EffectiveRunOptions {
+  skipIds: string[];
+  onlyIds: string[];
+  typeOverride: RepoType | null;
+  /** null means unlimited depth. */
+  depth: number | null;
+}
+
+export interface JsonReportInput {
+  targetPath: string;
+  generatedAt: string;
+  harnixVersion?: string;
+  runOptions: EffectiveRunOptions;
+  scanResult: ScanResult;
+}
+
+type JsonAssessment = JsonReport["assessment"];
+type JsonChild = JsonAssessment["children"][number];
+
+function buildJsonAssessment(result: ScanResult): JsonAssessment {
+  const checks = [...result.checks].sort((a, b) => compareText(a.id, b.id));
+  const evaluatedChecks = checks.filter((check) => check.status !== "not-assessed");
+  const hasLocalScore = result.localScore !== null;
+  const children = [...result.recursiveScans]
+    .sort((a, b) => {
+      const pathDelta = compareText(a.path, b.path);
+      if (pathDelta !== 0) {
+        return pathDelta;
+      }
+      return compareText(a.kind, b.kind);
+    })
+    .map((entry): JsonChild => {
+      const assessed = entry.result !== undefined;
+      const rawMessage = entry.error ?? "";
+      const relativeMessage =
+        entry.absolutePath.length > 0
+          ? rawMessage.split(entry.absolutePath).join(entry.path)
+          : rawMessage;
+      return {
+        kind: entry.kind,
+        path: entry.path,
+        status: assessed ? "assessed" : "error",
+        assessment: assessed ? buildJsonAssessment(entry.result!) : null,
+        error: assessed ? null : { message: relativeMessage }
+      };
+    });
+
+  return {
+    repoType: result.repoType,
+    repoTypeSource: result.repoTypeSource,
+    detectedRepoType: result.detectedRepoType,
+    localScore: result.localScore,
+    localScoreState: hasLocalScore ? "evaluated" : "no-checks",
+    rollupScore: result.rollupScore,
+    rollupState: result.rollupScore !== null ? "evaluated" : "unavailable",
+    band: hasLocalScore ? overallBand(Math.round(result.localScore! * 100)) : null,
+    evaluatedCheckIds: evaluatedChecks.map((check) => check.id),
+    checks: checks as JsonAssessment["checks"],
+    checkErrors: [...result.checkErrors].sort((a, b) => {
+      const idDelta = compareText(a.checkId, b.checkId);
+      if (idDelta !== 0) {
+        return idDelta;
+      }
+      return compareText(a.message, b.message);
+    }) as JsonAssessment["checkErrors"],
+    children
+  };
+}
+
+/**
+ * Builds the versioned JSON report from a complete scan result.
+ *
+ * Ordering is deterministic: checks by ID, check errors by check ID, and
+ * children by path then kind. Only run metadata (target, options, version,
+ * and instant) reflects the invocation.
+ */
+export function buildJsonReport(input: JsonReportInput): string {
+  const assessment = buildJsonAssessment(input.scanResult);
+  const sortedChecks = [...input.scanResult.checks].sort((a, b) => compareText(a.id, b.id));
+  const rankedRecommendations = topRecommendations(
+    sortedChecks,
+    input.scanResult.recursiveScans as RecursiveScanInput[]
+  ).map((item) => ({
+    checkId: item.id,
+    checkName: item.name,
+    targetPath: item.scanTargetPath.length > 0 ? item.scanTargetPath : null,
+    recommendation: item.recommendation,
+    tier: item.tier,
+    score: item.score
+  }));
+
+  const report: JsonReport = {
+    schemaVersion: JSON_REPORT_SCHEMA_VERSION,
+    harnixVersion: input.harnixVersion && input.harnixVersion.length > 0 ? input.harnixVersion : null,
+    generatedAt: input.generatedAt,
+    run: {
+      target: { path: input.targetPath },
+      options: {
+        skip: [...input.runOptions.skipIds],
+        only: [...input.runOptions.onlyIds],
+        typeOverride: input.runOptions.typeOverride,
+        depth: input.runOptions.depth
+      }
+    },
+    assessment,
+    topRecommendations: rankedRecommendations
+  };
+
+  return `${JSON.stringify(jsonReportSchema.parse(report), null, 2)}\n`;
 }
 
 export function buildMarkdownReport(
@@ -380,6 +512,10 @@ export function buildMarkdownReport(
     typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
       ? [`- Harnix version: **${options.harnixVersion}**`]
       : [];
+  const generatedLine =
+    typeof options.generatedAt === "string" && options.generatedAt.length > 0
+      ? `- Generated: ${timestamp} (${options.generatedAt})`
+      : `- Generated: ${timestamp}`;
 
   const lines: string[] = [
     "# Harnix Harness Readiness Report",
@@ -389,7 +525,7 @@ export function buildMarkdownReport(
     `- Local score: **${scores.local}**`,
     `- Rollup score: **${scores.rollup}**`,
     ...versionLine,
-    `- Generated: ${timestamp}`,
+    generatedLine,
     `- Scanned path: \`${scannedPath}\``,
     `- Checks evaluated: ${evaluatedCount(checks)} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)`,
     ...(checks.some((check) => check.status === "not-assessed") ? [`- Not assessed: ${checks.length - evaluatedCount(checks)}`] : []),
@@ -489,6 +625,10 @@ export function buildHtmlReport(
   const versionMeta =
     typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
       ? ` • Harnix ${escapeHtml(options.harnixVersion)}`
+      : "";
+  const generatedMeta =
+    typeof options.generatedAt === "string" && options.generatedAt.length > 0
+      ? ` (${escapeHtml(options.generatedAt)})`
       : "";
 
   const categoryRows = categoryScores
@@ -810,7 +950,7 @@ ${recommendationItems}
     <header class="page-header">
       <div>
         <h1>Harnix Harness Readiness Report</h1>
-        <p class="meta">Generated ${escapeHtml(timestamp)} • Scanned <code>${escapeHtml(scannedPath)}</code>${versionMeta}</p>
+        <p class="meta">Generated ${escapeHtml(timestamp)}${generatedMeta} • Scanned <code>${escapeHtml(scannedPath)}</code>${versionMeta}</p>
       </div>
       <div class="controls" role="group" aria-label="Report controls">
         <button id="theme-toggle" type="button">Toggle theme</button>
@@ -966,25 +1106,85 @@ export async function writeReportFiles(
   overallScore: number,
   outputDirectory?: string,
   options: ReportOptions = {}
-): Promise<{ markdownPath: string; htmlPath: string; timestamp: string }> {
-  const timestamp = reportTimestamp();
+): Promise<{
+  markdownPath: string;
+  htmlPath: string;
+  jsonPath?: string;
+  timestamp: string;
+  generatedAt: string;
+}> {
+  const now = typeof options.generatedAt === "string" && options.generatedAt.length > 0
+    ? new Date(options.generatedAt)
+    : new Date();
+  if (Number.isNaN(now.getTime())) {
+    throw new Error(`Invalid generatedAt: ${options.generatedAt}`);
+  }
+  const generatedAt = now.toISOString();
+  const timestamp = reportTimestamp(now);
   const resolvedOutputDirectory = outputDirectory
     ? path.resolve(outputDirectory)
     : path.join(scannedPath, "harnix");
   const markdownPath = path.join(resolvedOutputDirectory, `report-${timestamp}.md`);
   const htmlPath = path.join(resolvedOutputDirectory, `report-${timestamp}.html`);
 
+  const effectiveChecks = options.scanResult?.checks ?? checks;
+  const effectiveScore = options.scanResult?.overallScore ?? overallScore;
+  const effectiveRecursiveScans = options.scanResult?.recursiveScans ?? options.recursiveScans;
+  const effectiveLocalScore = options.scanResult ? options.scanResult.localScore : options.localScore;
+  const effectiveRollupScore = options.scanResult ? options.scanResult.rollupScore : options.rollupScore;
+  const reportOptions: ReportOptions = {
+    ...options,
+    generatedAt,
+    localScore: effectiveLocalScore,
+    rollupScore: effectiveRollupScore,
+    ...(effectiveRecursiveScans ? { recursiveScans: effectiveRecursiveScans } : {})
+  };
+  const markdownContent = buildMarkdownReport(
+    scannedPath,
+    effectiveChecks,
+    effectiveScore,
+    timestamp,
+    reportOptions
+  );
+  const htmlContent = buildHtmlReport(
+    scannedPath,
+    effectiveChecks,
+    effectiveScore,
+    timestamp,
+    reportOptions
+  );
+
+  let jsonPath: string | undefined;
+  let jsonContent: string | undefined;
+  if (options.jsonReport === true) {
+    if (!options.scanResult) {
+      throw new Error("JSON report requested but no scan result was provided");
+    }
+    if (!options.runOptions) {
+      throw new Error("JSON report requested but no effective run options were provided");
+    }
+
+    jsonPath = path.join(resolvedOutputDirectory, `report-${timestamp}.json`);
+    jsonContent = buildJsonReport({
+      targetPath: scannedPath,
+      generatedAt,
+      harnixVersion: options.harnixVersion,
+      runOptions: options.runOptions,
+      scanResult: options.scanResult
+    });
+  }
+
   await fs.mkdir(resolvedOutputDirectory, { recursive: true });
-
-  const markdownContent = buildMarkdownReport(scannedPath, checks, overallScore, timestamp, options);
-  const htmlContent = buildHtmlReport(scannedPath, checks, overallScore, timestamp, options);
-
   await Promise.all([
     fs.writeFile(markdownPath, markdownContent, "utf8"),
     fs.writeFile(htmlPath, htmlContent, "utf8")
   ]);
 
-  return { markdownPath, htmlPath, timestamp };
+  if (jsonPath && jsonContent !== undefined) {
+    await fs.writeFile(jsonPath, jsonContent, "utf8");
+  }
+
+  return { markdownPath, htmlPath, ...(jsonPath ? { jsonPath } : {}), timestamp, generatedAt };
 }
 
 export function printConsoleReport(

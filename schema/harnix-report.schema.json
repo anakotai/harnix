@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:harnix:json-report:1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.\\d+$"
+    },
+    "harnixVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": {}
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "skip": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "typeOverride": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "depth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "skip",
+            "only",
+            "typeOverride",
+            "depth"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "target",
+        "options"
+      ],
+      "additionalProperties": {}
+    },
+    "assessment": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "topRecommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "checkId": {
+            "type": "string"
+          },
+          "checkName": {
+            "type": "string"
+          },
+          "targetPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recommendation": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "checkId",
+          "checkName",
+          "targetPath",
+          "recommendation",
+          "tier",
+          "score"
+        ],
+        "additionalProperties": {}
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "harnixVersion",
+    "generatedAt",
+    "run",
+    "assessment",
+    "topRecommendations"
+  ],
+  "additionalProperties": {},
+  "title": "Harnix JSON assessment report",
+  "description": "Versioned machine-readable Harnix assessment. Consumers must ignore unknown fields and tolerate unknown values for extensible string fields such as child kind, check status, repo type source, and score state.",
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "repoType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repoTypeSource": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detectedRepoType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "localScore": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "localScoreState": {
+          "type": "string"
+        },
+        "rollupScore": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rollupState": {
+          "type": "string"
+        },
+        "band": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evaluatedCheckIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "status": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              },
+              "whyThisMatters": {
+                "type": "string"
+              },
+              "recommendations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "category",
+              "tier",
+              "score",
+              "status",
+              "summary",
+              "details",
+              "whyThisMatters",
+              "recommendations",
+              "references"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "checkErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "checkId": {
+                "type": "string"
+              },
+              "checkName": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "checkId",
+              "checkName",
+              "message"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "assessment": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "message"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "path",
+              "status",
+              "assessment",
+              "error"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "repoType",
+        "repoTypeSource",
+        "detectedRepoType",
+        "localScore",
+        "localScoreState",
+        "rollupScore",
+        "rollupState",
+        "band",
+        "evaluatedCheckIds",
+        "checks",
+        "checkErrors",
+        "children"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}

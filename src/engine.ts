@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import type { CheckResult } from "./types.js";
+import type { CheckExecutionError, CheckResult, RepoType } from "./types.js";
 import {
   detectGitInfo,
   detectRepoType,
@@ -22,7 +22,7 @@ const HARNIX_ROOT = existsSync(path.join(__dirname, "..", "package.json"))
 const CHECKS_DIR = path.join(HARNIX_ROOT, "checks");
 const DIST_CHECKS_DIR = path.join(HARNIX_ROOT, "dist", "checks");
 
-interface DiscoveredCheck {
+export interface DiscoveredCheck {
   dirName: string;
   meta: CheckMeta;
 }
@@ -80,7 +80,9 @@ async function discoverChecks(): Promise<DiscoveredCheck[]> {
   return discovered;
 }
 
-async function loadCheckFunction(dirName: string): Promise<(ctx: import("./types.js").ScanContext) => Promise<CheckResult>> {
+export type CheckFunction = (ctx: EngineScanContext) => Promise<CheckResult>;
+
+async function loadCheckFunction(dirName: string): Promise<CheckFunction> {
   const compiledPath = path.join(DIST_CHECKS_DIR, dirName, "check.js");
   const sourcePath = path.join(CHECKS_DIR, dirName, "check.ts");
 
@@ -113,13 +115,13 @@ async function loadCheckFunction(dirName: string): Promise<(ctx: import("./types
     );
   }
 
-  return module.default as (ctx: import("./types.js").ScanContext) => Promise<CheckResult>;
+  return module.default as CheckFunction;
 }
 
-interface ScanContext {
+export interface EngineScanContext {
   rootPath: string;
   files: string[];
-  repoType: "software" | "non-software";
+  repoType: RepoType;
   gitInfo: GitInfo;
 }
 
@@ -128,8 +130,50 @@ interface RunOptions {
   onlyIds?: string[];
 }
 
-async function runDiscoveredChecks(ctx: ScanContext, options: RunOptions = {}, catalog?: DiscoveredCheck[]): Promise<CheckResult[]> {
-  const discovered = catalog ?? await discoverChecks();
+export interface CheckRunResult {
+  checks: CheckResult[];
+  errors: CheckExecutionError[];
+}
+
+function compareStrings(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
+  return 0;
+}
+
+function failedCheckResult(meta: CheckMeta, message: string): CheckResult {
+  return {
+    id: meta.id,
+    name: meta.name,
+    category: meta.category ?? "unknown",
+    tier: (meta.tier as CheckResult["tier"]),
+    score: 0,
+    status: "fail",
+    summary: `Check failed to run: ${message}`,
+    details: `The check "${meta.id}" threw an error during execution.`,
+    whyThisMatters: meta.description ?? "",
+    recommendations: ["Fix the check implementation or report the issue."],
+    references: []
+  };
+}
+
+/**
+ * Runs already-discovered checks against a scan context.
+ *
+ * The loader is injectable so the catch boundary can be exercised in tests.
+ * Check execution keeps the legacy synthetic failed result, while structured
+ * execution errors are returned separately for machine-readable reports.
+ */
+export async function runChecks(
+  discovered: DiscoveredCheck[],
+  loadCheck: (dirName: string) => Promise<CheckFunction>,
+  ctx: EngineScanContext,
+  options: RunOptions = {}
+): Promise<CheckRunResult> {
   const skipIds = new Set(options.skipIds ?? []);
   const onlyIds = new Set(options.onlyIds ?? []);
   const hasOnlyFilter = onlyIds.size > 0;
@@ -142,36 +186,49 @@ async function runDiscoveredChecks(ctx: ScanContext, options: RunOptions = {}, c
     return meta.applicableTo === ctx.repoType;
   });
 
-  const checkPromises = applicable.map(async ({ dirName, meta }): Promise<CheckResult> => {
-    try {
-      const checkFn = await loadCheckFunction(dirName);
-      return await checkFn(ctx);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`Warning: check "${meta.id}" failed to run: ${message}`);
-      return {
-        id: meta.id,
-        name: meta.name,
-        category: meta.category ?? "unknown",
-        tier: (meta.tier as CheckResult["tier"]),
-        score: 0,
-        status: "fail",
-        summary: `Check failed to run: ${message}`,
-        details: `The check "${meta.id}" threw an error during execution.`,
-        whyThisMatters: meta.description ?? "",
-        recommendations: ["Fix the check implementation or report the issue."],
-        references: []
-      };
-    }
-  });
+  const outcomes = await Promise.all(
+    applicable.map(async ({ dirName, meta }) => {
+      try {
+        const checkFn = await loadCheck(dirName);
+        return { check: await checkFn(ctx), error: undefined };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Warning: check "${meta.id}" failed to run: ${message}`);
+        return {
+          check: failedCheckResult(meta, message),
+          error: { checkId: meta.id, checkName: meta.name, message }
+        };
+      }
+    })
+  );
 
-  return Promise.all(checkPromises);
+  const checks = outcomes.map((outcome) => outcome.check);
+  const errors = outcomes
+    .flatMap((outcome) => (outcome.error ? [outcome.error] : []))
+    .sort((a, b) => {
+      const idDelta = compareStrings(a.checkId, b.checkId);
+      if (idDelta !== 0) {
+        return idDelta;
+      }
+      return compareStrings(a.message, b.message);
+    });
+
+  return { checks, errors };
+}
+
+async function runDiscoveredChecks(
+  ctx: EngineScanContext,
+  options: RunOptions = {},
+  catalog?: DiscoveredCheck[]
+): Promise<CheckRunResult> {
+  const discovered = catalog ?? await discoverChecks();
+  return runChecks(discovered, loadCheckFunction, ctx, options);
 }
 
 export interface ScanOptions {
   skipIds?: string[];
   onlyIds?: string[];
-  repoType?: "software" | "non-software";
+  repoType?: RepoType;
   recursive?: boolean;
   maxDepth?: number;
   outputPath?: string;
@@ -179,13 +236,19 @@ export interface ScanOptions {
 
 export interface ScanResult {
   absolutePath: string;
-  repoType: "software" | "non-software";
+  repoType: RepoType;
+  /** Whether this target's effective type came from detection or an explicit root override. */
+  repoTypeSource: "detected" | "override";
+  /** Best-effort type detection, kept even when an override replaced it. */
+  detectedRepoType: RepoType;
   gitInfo: GitInfo;
   /** Numeric compatibility alias: rollupScore ?? localScore ?? 0. */
   overallScore: number;
   localScore: number | null;
   rollupScore: number | null;
   checks: CheckResult[];
+  /** Structured failures captured at the check loader/execution catch boundary. */
+  checkErrors: CheckExecutionError[];
   recursiveScans: RecursiveScanEntry[];
 }
 
@@ -226,7 +289,10 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
   async function assess(node: InventoryNode, depth: number): Promise<ScanResult> {
     if (node.error) throw new Error(node.error);
     const files = node.files;
-    const repoType = (depth === 0 ? options.repoType : undefined) ?? detectRepoType(files);
+    const detectedRepoType = detectRepoType(files);
+    const repoType = (depth === 0 ? options.repoType : undefined) ?? detectedRepoType;
+    const repoTypeSource: ScanResult["repoTypeSource"] =
+      depth === 0 && options.repoType ? "override" : "detected";
     const gitInfo = await detectGitInfo(node.absolutePath, files);
     for (const declared of gitInfo.workspaces) {
       const absolute = path.resolve(node.absolutePath, declared);
@@ -235,7 +301,11 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
     for (const declared of gitInfo.submodules) {
       annotations.set(path.resolve(node.absolutePath, declared), "submodule");
     }
-    const checks = await runDiscoveredChecks({ rootPath: node.absolutePath, files, repoType, gitInfo }, options, catalog);
+    const { checks, errors: checkErrors } = await runDiscoveredChecks(
+      { rootPath: node.absolutePath, files, repoType, gitInfo },
+      options,
+      catalog
+    );
     const recursiveScans: RecursiveScanEntry[] = [];
     if (recursive && depth < maxDepth) {
       for (const child of node.children) {
@@ -254,8 +324,9 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
     const totalWeight = evaluated.reduce((sum, check) => sum + tierWeight(check.tier), 0);
     const localScore = totalWeight > 0 ? weightedSum / totalWeight : null;
     const rollupScore = calculateRollup(localScore, recursiveScans);
-    return { absolutePath: node.absolutePath, repoType, gitInfo, checks, recursiveScans,
-      localScore, rollupScore, overallScore: rollupScore ?? localScore ?? 0 };
+    return { absolutePath: node.absolutePath, repoType, repoTypeSource, detectedRepoType, gitInfo,
+      checks, checkErrors, recursiveScans, localScore, rollupScore,
+      overallScore: rollupScore ?? localScore ?? 0 };
   }
   return assess(tree, 0);
 }

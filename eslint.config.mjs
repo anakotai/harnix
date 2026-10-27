@@ -10,7 +10,7 @@ export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['bin/**/*.js'],
+    files: ['bin/**/*.js', 'scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

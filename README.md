@@ -53,7 +53,7 @@ Top recommendations:
 3. Add a CI pipeline (for example GitHub Actions) to automate lint, test, and build checks.
 ```
 
-Reports are also written as Markdown and self-contained HTML files to the `harnix/` output directory.
+Reports are also written as Markdown and self-contained HTML files to the `harnix/` output directory. Pass `--json-report` to add a versioned, machine-readable JSON artifact beside them.
 
 ## Installation
 
@@ -109,6 +109,7 @@ harnix scan --help     # Show scan-specific help
 | `--only <id>` | Run only specified check IDs (comma-separated or repeated) |
 | `--type <type>` | Override repo type (`software` or `non-software`) for the scanned root path |
 | `--depth <n>` | Recursive assessment depth for all non-noise subdirectories (`0` = root only, default: unlimited) |
+| `--json-report` | Also write a timestamped, versioned JSON report beside the Markdown and HTML files |
 | `--help`, `-h` | Show scan help text |
 
 Every direct non-noise subdirectory is assessed recursively, including ordinary `src/` and `docs/` directories and empty directories. Submodule/workspace declarations annotate the real tree; they do not promote deeply nested projects to direct children. Default depth remains unlimited; `--depth 0` assesses only the root, and `--depth 1` adds direct children. Depth limits assessments, not the complete file inventory used by each target. A root `--type non-software` override does not force child software projects into non-software scoring.
@@ -148,11 +149,13 @@ output: ./reports
 
 ### Output Formats
 
-Every scan produces three outputs:
+Every scan produces three human-readable outputs:
 
 1. **Console** — colored summary printed to stdout
 2. **Markdown** — timestamped `.md` report in the output directory
 3. **HTML** — self-contained `.html` report with embedded CSS (no external requests)
+
+Pass `--json-report` to also write a timestamped `.json` report for agents and tooling. The JSON artifact uses a versioned schema, includes the same run instant as the human-readable reports, and is announced only after it is written successfully. See [JSON Reports](https://github.com/anakotai/harnix/blob/main/docs/src/content/docs/json-reports.md) for the contract and compatibility policy.
 
 ## Scoring Methodology
 

@@ -1,6 +1,6 @@
 {
   "name": "harnix",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "Open-source harness readiness scanner",
   "type": "module",
   "bin": {
@@ -11,14 +11,16 @@
     "checks/**/meta.yaml",
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "schema/harnix-report.schema.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "lint": "eslint .",
-    "prepack": "npm run build",
+    "prepack": "npm run schema",
     "scan": "node bin/harnix.js scan .",
+    "schema": "npm run build && node scripts/generate-report-schema.mjs",
     "test": "vitest run"
   },
   "license": "Apache-2.0",
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.3.3",
+    "ajv": "^8.20.0",
     "eslint": "^10.0.2",
     "globals": "^17.4.0",
     "typescript": "^5.9.3",

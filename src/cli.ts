@@ -74,6 +74,7 @@ function printScanHelp(): void {
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
   console.log("  --type <type>    Override repo type (software | non-software)");
   console.log("  --depth <n>      Assessment depth for non-noise subdirectories (0 = root only)");
+  console.log("  --json-report    Also write a versioned, machine-readable JSON report");
   console.log("  --help, -h       Show this help text");
 }
 
@@ -218,6 +219,7 @@ interface ParsedScanArgs {
   repoType?: "software" | "non-software";
   depth?: number;
   verbose: boolean;
+  jsonReport: boolean;
   skipIds: string[];
   onlyIds: string[];
 }
@@ -229,6 +231,7 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
   let repoType: "software" | "non-software" | undefined;
   let depth: number | undefined;
   let verbose = false;
+  let jsonReport = false;
   const skipIds: string[] = [];
   const onlyIds: string[] = [];
 
@@ -237,6 +240,11 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
 
     if (argument === "--verbose") {
       verbose = true;
+      continue;
+    }
+
+    if (argument === "--json-report") {
+      jsonReport = true;
       continue;
     }
 
@@ -341,6 +349,7 @@ function parseScanArgs(args: string[]): ParsedScanArgs {
     repoType,
     depth,
     verbose,
+    jsonReport,
     skipIds: uniqueSkipIds,
     onlyIds: uniqueOnlyIds
   };
@@ -378,9 +387,8 @@ export async function runCli(args: string[]): Promise<void> {
     return;
   }
 
-  const { targetPath, outputPath, repoType, depth, verbose, skipIds, onlyIds } = parseScanArgs(
-    commandArgs
-  );
+  const { targetPath, outputPath, repoType, depth, verbose, jsonReport, skipIds, onlyIds } =
+    parseScanArgs(commandArgs);
   const resolvedPath = path.resolve(targetPath);
   await ensureDirectory(resolvedPath);
   const config = await loadScanConfig(resolvedPath);
@@ -422,15 +430,40 @@ export async function runCli(args: string[]): Promise<void> {
     harnixVersion
   });
 
-  const reports = await writeReportFiles(
-    result.absolutePath,
-    result.checks,
-    result.overallScore,
-    resolvedOutputPath,
-    { recursiveScans: result.recursiveScans, harnixVersion, localScore: result.localScore, rollupScore: result.rollupScore }
-  );
+  let reports: Awaited<ReturnType<typeof writeReportFiles>>;
+  try {
+    reports = await writeReportFiles(
+      result.absolutePath,
+      result.checks,
+      result.overallScore,
+      resolvedOutputPath,
+      {
+        recursiveScans: result.recursiveScans,
+        harnixVersion,
+        localScore: result.localScore,
+        rollupScore: result.rollupScore,
+        scanResult: result,
+        runOptions: {
+          skipIds: effectiveSkipIds,
+          onlyIds: effectiveOnlyIds,
+          typeOverride: effectiveRepoType ?? null,
+          depth: effectiveDepth ?? null
+        },
+        jsonReport
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: failed to write report files: ${message}`);
+    process.exitCode = 1;
+    return;
+  }
+
   console.log("");
   console.log(bold("Reports written:"));
   console.log(reports.markdownPath);
   console.log(reports.htmlPath);
+  if (reports.jsonPath) {
+    console.log(reports.jsonPath);
+  }
 }

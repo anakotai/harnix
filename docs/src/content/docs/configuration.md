@@ -13,7 +13,7 @@ Create a `.harnix.yaml` file in the root of the repository you want to scan. Har
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `output` | `string` | Directory path where Markdown and HTML report files are written. Resolved relative to the repository root. |
+| `output` | `string` | Directory path where Markdown and HTML report files are written. Resolved relative to the repository root. JSON is enabled separately with the `--json-report` CLI flag. |
 | `skip` | `string[]` | Array of check IDs to exclude from the scan. |
 | `only` | `string[]` | Array of check IDs to include exclusively. All other checks are skipped. |
 | `type` | `"software"` or `"non-software"` | Override automatic repository type detection. Controls which checks run based on their `applicableTo` field. |
@@ -46,7 +46,7 @@ The resolution rules for each setting are:
 
 | Setting | Precedence |
 |---------|-----------|
-| `output` | CLI `--output` overrides config `output`. If neither is set, reports are written to the repository root. |
+| `output` | CLI `--output` overrides config `output`. If neither is set, reports are written to the `harnix/` directory under the scanned root. |
 | `skip` | CLI `--skip` overrides config `skip`. If `--only` is present (from CLI or config), `skip` is ignored entirely. |
 | `only` | CLI `--only` overrides config `only`. When `only` is active from any source, `skip` is cleared. |
 | `type` | CLI `--type` overrides config `type`. If neither is set, Harnix auto-detects the repository type by scanning for software signals such as `package.json`, `Cargo.toml`, or `go.mod`. |
@@ -77,7 +77,7 @@ Running `harnix scan . --only agents-md,root-readme,documentation` would:
 When no `.harnix.yaml` is present, Harnix runs with default behavior:
 
 - All applicable checks are executed
-- Reports are written to the repository root directory
+- Markdown and HTML reports are written to the `harnix/` output directory
 - Repository type is auto-detected from file signals
 - Recursive scan depth is unlimited
 

@@ -1,7 +1,18 @@
+export type RepoType = 'software' | 'non-software';
+
+export interface CheckExecutionError {
+  /** ID of the check whose loader or execution threw. */
+  checkId: string;
+  /** Display name from the check's meta.yaml at the time of the failure. */
+  checkName: string;
+  /** Raw error message captured at the engine catch boundary. */
+  message: string;
+}
+
 export interface ScanContext {
   rootPath: string;
   files: string[];
-  repoType: 'software' | 'non-software';
+  repoType: RepoType;
   gitInfo: {
     hasSubmodules: boolean;
     submodules: string[];

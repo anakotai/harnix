@@ -48,10 +48,12 @@ Four checks (`ci-pipeline`, `testing-provision`, `repo-structure`, `operating-co
 
 ## What output formats does Harnix produce?
 
-Every scan generates three outputs:
+Every scan generates three human-readable outputs:
 
 1. **Console summary** — printed to the terminal with per-check status symbols (`✓`, `△`, `✗`), scores, and top recommendations.
 2. **Markdown report** — a timestamped `.md` file suitable for embedding in pull requests, issues, or documentation.
 3. **HTML report** — a self-contained `.html` file with inline styles for browser viewing, no external dependencies required.
 
-Report files are written to the repository root by default, or to a custom directory specified via `--output` or the `output` key in `.harnix.yaml`.
+Pass `--json-report` to add a versioned JSON artifact for agents and tooling. See [JSON Reports](/json-reports/) for the contract and compatibility policy.
+
+Report files are written to the `harnix/` directory by default, or to a custom directory specified via `--output` or the `output` key in `.harnix.yaml`.

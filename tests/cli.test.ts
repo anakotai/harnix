@@ -23,6 +23,8 @@ function makeResult(absolutePath: string): ScanResult {
   return {
     absolutePath,
     repoType: "software",
+    repoTypeSource: "detected",
+    detectedRepoType: "software",
     gitInfo: {
       hasSubmodules: false,
       submodules: [],
@@ -42,6 +44,7 @@ function makeResult(absolutePath: string): ScanResult {
     localScore: 1,
     rollupScore: 1,
     checks: [],
+    checkErrors: [],
     recursiveScans: [],
   };
 }

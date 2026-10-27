@@ -29,6 +29,8 @@ describe("CLI skip/only precedence vs config", () => {
     scanRepositoryMock.mockResolvedValue({
       absolutePath: path.resolve(tmpDir),
       repoType: "software",
+      repoTypeSource: "detected",
+      detectedRepoType: "software",
       gitInfo: {
         hasSubmodules: false,
         submodules: [],
@@ -46,6 +48,7 @@ describe("CLI skip/only precedence vs config", () => {
       },
       overallScore: 1,
       checks: [],
+      checkErrors: [],
       recursiveScans: [],
     });
     writeReportFilesMock.mockResolvedValue({

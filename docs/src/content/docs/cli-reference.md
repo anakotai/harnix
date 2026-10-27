@@ -80,12 +80,24 @@ harnix scan . --depth 1
 harnix scan . --depth=2
 ```
 
+### `--json-report`
+
+Also write a timestamped, versioned JSON report beside the Markdown and HTML artifacts.
+
+```bash
+harnix scan . --json-report
+```
+
+JSON output is opt-in so default stdout and report files stay human-readable. The JSON report records the effective options after CLI/config precedence, evaluated check IDs, full check results, structured check-execution errors, and the existing recursive child tree. The CLI prints the artifact path only after every requested file is written successfully. See [JSON Reports](/json-reports/) for the schema and compatibility policy.
+
+`--json-report` is a CLI-only output choice; it is not available in `.harnix.yaml`.
+
 ## Exit codes
 
 Harnix uses the following exit codes to indicate scan outcomes:
 
 - `0` — scan completed successfully, regardless of scores
-- `1` — an error occurred (invalid arguments, missing directory, malformed config file)
+- `1` — an error occurred (invalid arguments, missing directory, malformed config file, or a requested report artifact that could not be written)
 
 The exit code does not reflect the scan score. A repository scoring `0%` still exits with code `0` because the scan itself succeeded. This design makes Harnix safe to use in CI pipelines where you want to capture results without failing the build on low scores.
 
