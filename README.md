@@ -108,10 +108,14 @@ harnix scan --help     # Show scan-specific help
 | `--skip <id>` | Skip check IDs (comma-separated or repeated) |
 | `--only <id>` | Run only specified check IDs (comma-separated or repeated) |
 | `--type <type>` | Override repo type (`software` or `non-software`) for the scanned root path |
-| `--depth <n>` | Recursive scan depth for submodules/workspaces (`0` = root only, default: unlimited) |
+| `--depth <n>` | Recursive assessment depth for all non-noise subdirectories (`0` = root only, default: unlimited) |
 | `--help`, `-h` | Show scan help text |
 
-When recursive monorepo scanning is enabled (default), submodules and workspaces are auto-detected independently. This is expected behavior (not a scoring issue): a management root override (for example `--type non-software`) does not force child software repos into non-software scoring.
+Every direct non-noise subdirectory is assessed recursively, including ordinary `src/` and `docs/` directories and empty directories. Submodule/workspace declarations annotate the real tree; they do not promote deeply nested projects to direct children. Default depth remains unlimited; `--depth 0` assesses only the root, and `--depth 1` adds direct children. Depth limits assessments, not the complete file inventory used by each target. A root `--type non-software` override does not force child software projects into non-software scoring.
+
+Inventory and discovery share `.gitignore` filtering from the scan root down: deeper files override shallower files, the last matching rule wins within a file, and negation cannot restore files inside an excluded directory. Patterns are case-sensitive, anchored relative to their `.gitignore`, and use Git-compatible wildcards and escapes. Ancestor rules above the scan root, global Git excludes, `.git/info/exclude`, and Git's tracked-file exceptions are not consulted. Built-in noise takes precedence: `.git`, `.hg`, `.svn`, `node_modules`, `.next`, `dist`, `build`, `.venv`, `venv`, `__pycache__`, and `.cache`. Symlink aliases are omitted in favor of their physical in-root paths, so aliases cannot bypass ignores, duplicate content, escape the root, or form cycles.
+
+The selected dedicated report output directory (default `harnix/`) is excluded. When output is the scan root (`--output .`), unrelated files remain visible. Timestamp-named `report-YYYYMMDDTHHMMSS.md`/`.html` files are excluded anywhere only when their opening content identifies a Harnix report. Historical arbitrary custom output directories are not recognized after selecting a different output path: add them to `.gitignore`. Renamed reports or edited headers cannot reliably be identified.
 
 ### Configuration File
 
@@ -132,7 +136,7 @@ only:
 # Override repo type detection
 type: software
 
-# Optional recursive depth for submodules/workspaces
+# Optional recursive depth for non-noise subdirectories
 # 0 = root only
 depth: 1
 
@@ -167,10 +171,18 @@ Each check belongs to a tier that determines its weight in the overall score:
 ### Formula
 
 ```
-Overall Score = (Σ weight_i × score_i) / (Σ weight_i)
+Local Score = (Σ weight_i × score_i) / (Σ weight_i)
 ```
 
 Each check produces a score between 0.0 and 1.0. The weighted formula ensures critical checks (like agent guidance and documentation) have proportionally more influence on the overall score than nice-to-have checks.
+
+### Recursive rollup
+
+Reports label **Local score** and **Rollup score** separately. Local score is the fixed tier-weighted mean above. Rollup equally averages the available local score and each successfully scored direct child's effective score (its rollup, otherwise local). Descendants contribute through their direct ancestor only. Failed or unscanned targets are omitted, never counted as zero. With no evaluated checks, local score is unavailable and has no band; scored children can still produce a rollup. With no scores at all, rollup is also unavailable. A leaf's rollup equals its local score.
+
+For example, a root local score of 80%, one child with rollup 40%, and another child with local 60% produce a root rollup of 60%. Child importance is not weighted. The engine's numeric `overallScore` compatibility field now means `rollupScore ?? localScore ?? 0`; use nullable `localScore`/`rollupScore` to distinguish unavailable from zero.
+
+Ordinary source directories often lack root-oriented guidance, README files, or CI markers. Their lower local scores can lower the recursive rollup even when the root is well documented. This release deliberately expands coverage under the existing domain contract; compare scores only with the same Harnix version, check set, and depth. Use `--depth 0` for a root-only assessment. Markdown and HTML retain every assessed child's findings, references, recommendations, and path-attributed errors; large trees produce large reports.
 
 ### Qualitative Bands
 

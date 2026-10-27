@@ -7,8 +7,8 @@ import type { CheckResult } from "./types.js";
 import {
   detectGitInfo,
   detectRepoType,
-  listFiles,
-  resolveContainedChildPathAsync
+  inventoryTree,
+  type InventoryNode
 } from "./scanner.js";
 import type { GitInfo } from "./scanner.js";
 import { metaSchema, type CheckMeta } from "./schemas/meta.js";
@@ -128,8 +128,8 @@ interface RunOptions {
   onlyIds?: string[];
 }
 
-async function runDiscoveredChecks(ctx: ScanContext, options: RunOptions = {}): Promise<CheckResult[]> {
-  const discovered = await discoverChecks();
+async function runDiscoveredChecks(ctx: ScanContext, options: RunOptions = {}, catalog?: DiscoveredCheck[]): Promise<CheckResult[]> {
+  const discovered = catalog ?? await discoverChecks();
   const skipIds = new Set(options.skipIds ?? []);
   const onlyIds = new Set(options.onlyIds ?? []);
   const hasOnlyFilter = onlyIds.size > 0;
@@ -174,21 +174,23 @@ export interface ScanOptions {
   repoType?: "software" | "non-software";
   recursive?: boolean;
   maxDepth?: number;
-  _visitedPaths?: Set<string>;
-  _currentDepth?: number;
+  outputPath?: string;
 }
 
 export interface ScanResult {
   absolutePath: string;
   repoType: "software" | "non-software";
   gitInfo: GitInfo;
+  /** Numeric compatibility alias: rollupScore ?? localScore ?? 0. */
   overallScore: number;
+  localScore: number | null;
+  rollupScore: number | null;
   checks: CheckResult[];
   recursiveScans: RecursiveScanEntry[];
 }
 
 export interface RecursiveScanEntry {
-  kind: "submodule" | "workspace";
+  kind: "directory" | "submodule" | "workspace";
   path: string;
   absolutePath: string;
   result?: ScanResult;
@@ -214,136 +216,56 @@ export async function scanRepository(targetPath: string, options: ScanOptions = 
   ) {
     throw new Error("Invalid maxDepth: expected a non-negative integer");
   }
-  const configuredMaxDepth = options.maxDepth;
-  const maxDepth = configuredMaxDepth ?? Number.POSITIVE_INFINITY;
-  const currentDepth = options._currentDepth ?? 0;
-  const visitedPaths = options._visitedPaths ?? new Set<string>();
-  try {
-    visitedPaths.add(await fs.realpath(absolutePath));
-  } catch {
-    visitedPaths.add(absolutePath);
+  const maxDepth = options.maxDepth ?? Number.POSITIVE_INFINITY;
+  const tree = await inventoryTree(absolutePath, options.outputPath);
+  const catalog = await discoverChecks();
+  // Declarations annotate the real tree, including declarations several levels
+  // below the declaring target. They never promote descendants to direct children.
+  const annotations = new Map<string, RecursiveScanEntry["kind"]>();
+
+  async function assess(node: InventoryNode, depth: number): Promise<ScanResult> {
+    if (node.error) throw new Error(node.error);
+    const files = node.files;
+    const repoType = (depth === 0 ? options.repoType : undefined) ?? detectRepoType(files);
+    const gitInfo = await detectGitInfo(node.absolutePath, files);
+    for (const declared of gitInfo.workspaces) {
+      const absolute = path.resolve(node.absolutePath, declared);
+      if (!annotations.has(absolute)) annotations.set(absolute, "workspace");
+    }
+    for (const declared of gitInfo.submodules) {
+      annotations.set(path.resolve(node.absolutePath, declared), "submodule");
+    }
+    const checks = await runDiscoveredChecks({ rootPath: node.absolutePath, files, repoType, gitInfo }, options, catalog);
+    const recursiveScans: RecursiveScanEntry[] = [];
+    if (recursive && depth < maxDepth) {
+      for (const child of node.children) {
+        const entry: RecursiveScanEntry = {
+          kind: annotations.get(child.absolutePath) ?? "directory",
+          path: path.basename(child.absolutePath),
+          absolutePath: child.absolutePath
+        };
+        try { entry.result = await assess(child, depth + 1); }
+        catch (error) { entry.error = error instanceof Error ? error.message : String(error); }
+        recursiveScans.push(entry);
+      }
+    }
+    const weightedSum = checks.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
+    const totalWeight = checks.reduce((sum, check) => sum + tierWeight(check.tier), 0);
+    const localScore = totalWeight > 0 ? weightedSum / totalWeight : null;
+    const rollupScore = calculateRollup(localScore, recursiveScans);
+    return { absolutePath: node.absolutePath, repoType, gitInfo, checks, recursiveScans,
+      localScore, rollupScore, overallScore: rollupScore ?? localScore ?? 0 };
   }
-
-  const files = await listFiles(absolutePath);
-  const repoType = options.repoType ?? detectRepoType(files);
-  const gitInfo = await detectGitInfo(absolutePath, files);
-
-  const ctx: ScanContext = { rootPath: absolutePath, files, repoType, gitInfo };
-  const checks = await runDiscoveredChecks(ctx, {
-    skipIds: options.skipIds,
-    onlyIds: options.onlyIds
-  });
-
-  const recursiveScans = recursive && currentDepth < maxDepth
-      ? await runRecursiveScans(absolutePath, gitInfo, {
-          skipIds: options.skipIds,
-          onlyIds: options.onlyIds,
-          maxDepth: configuredMaxDepth,
-          currentDepth,
-          recursive,
-          visitedPaths
-        })
-    : [];
-
-  const weightedSum = checks.reduce((sum, check) => sum + tierWeight(check.tier) * check.score, 0);
-  const totalWeight = checks.reduce((sum, check) => sum + tierWeight(check.tier), 0);
-  const overallScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
-
-  return {
-    absolutePath,
-    repoType,
-    gitInfo,
-    overallScore,
-    checks,
-    recursiveScans
-  };
+  return assess(tree, 0);
 }
 
-interface RecursiveScanOptions {
-  skipIds?: string[];
-  onlyIds?: string[];
-  maxDepth?: number;
-  currentDepth: number;
-  recursive: boolean;
-  visitedPaths: Set<string>;
-}
-
-async function runRecursiveScans(
-  rootPath: string,
-  gitInfo: GitInfo,
-  options: RecursiveScanOptions
-): Promise<RecursiveScanEntry[]> {
-  const submodulePaths = (gitInfo.submodules ?? []).map((entry) => ({
-    kind: "submodule" as const,
-    relativePath: entry
-  }));
-  const workspacePaths = (gitInfo.workspaces ?? []).map((entry) => ({
-    kind: "workspace" as const,
-    relativePath: entry
-  }));
-  const candidates = [...submodulePaths, ...workspacePaths];
-  const recursiveScans: RecursiveScanEntry[] = [];
-
-  for (const candidate of candidates) {
-    const contained = await resolveContainedChildPathAsync(rootPath, candidate.relativePath);
-    if (!contained) {
-      continue;
-    }
-
-    const { absolutePath: absoluteChildPath, relativePath: normalizedPath } = contained;
-
-    let childRealPath: string;
-    try {
-      childRealPath = await fs.realpath(absoluteChildPath);
-    } catch {
-      continue;
-    }
-
-    if (options.visitedPaths.has(childRealPath)) {
-      continue;
-    }
-    options.visitedPaths.add(childRealPath);
-
-    const childStats = await safeStatDirectory(absoluteChildPath);
-    if (!childStats) {
-      continue;
-    }
-
-    try {
-      const result = await scanRepository(absoluteChildPath, {
-        skipIds: options.skipIds,
-        onlyIds: options.onlyIds,
-        maxDepth: options.maxDepth,
-        recursive: options.recursive,
-        _visitedPaths: options.visitedPaths,
-        _currentDepth: options.currentDepth + 1
-      });
-
-      recursiveScans.push({
-        kind: candidate.kind,
-        path: normalizedPath,
-        absolutePath: absoluteChildPath,
-        result
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      recursiveScans.push({
-        kind: candidate.kind,
-        path: normalizedPath,
-        absolutePath: absoluteChildPath,
-        error: message
-      });
-    }
+/** Only direct, successful, scored children contribute. Zero is a valid score. */
+export function calculateRollup(localScore: number | null, children: RecursiveScanEntry[]): number | null {
+  const scores: number[] = localScore === null ? [] : [localScore];
+  for (const child of children) {
+    if (child.error || !child.result) continue;
+    const score = child.result.rollupScore ?? child.result.localScore;
+    if (score !== null) scores.push(score);
   }
-
-  return recursiveScans;
-}
-
-async function safeStatDirectory(absolutePath: string): Promise<import("node:fs").Stats | null> {
-  try {
-    const stats = await fs.stat(absolutePath);
-    return stats.isDirectory() ? stats : null;
-  } catch {
-    return null;
-  }
+  return scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
 }

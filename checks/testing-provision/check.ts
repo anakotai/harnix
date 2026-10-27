@@ -42,7 +42,9 @@ export default async function (ctx: ScanContext): Promise<CheckResult> {
 
   let readmeMentionsTesting = false;
   try {
-    const readme = await fs.readFile(path.join(rootPath, 'README.md'), 'utf8');
+    const readme = files.includes('README.md')
+      ? await fs.readFile(path.join(rootPath, 'README.md'), 'utf8')
+      : '';
     readmeMentionsTesting =
       /^#{1,6}\s+.*\b(test|tests|testing)\b/im.test(readme) ||
       /\b(test|tests|testing)\b/i.test(readme);

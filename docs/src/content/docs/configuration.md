@@ -17,7 +17,7 @@ Create a `.harnix.yaml` file in the root of the repository you want to scan. Har
 | `skip` | `string[]` | Array of check IDs to exclude from the scan. |
 | `only` | `string[]` | Array of check IDs to include exclusively. All other checks are skipped. |
 | `type` | `"software"` or `"non-software"` | Override automatic repository type detection. Controls which checks run based on their `applicableTo` field. |
-| `depth` | `number` | Recursive scan depth for submodules/workspaces (`0` = root only). |
+| `depth` | `number` | Recursive scan depth for non-noise subdirectories (`0` = root only). |
 
 ### Example `.harnix.yaml`
 
@@ -36,7 +36,7 @@ depth: 0
 - **All entries are trimmed and deduplicated.** Leading and trailing whitespace in check IDs is removed, and duplicate entries are silently ignored.
 - **`output` must be a non-empty string.** If provided, Harnix creates the directory if it does not already exist.
 - **`type` must be exactly `"software"` or `"non-software"`.** Any other value produces a validation error.
-- **`depth` must be a non-negative integer.** `0` disables recursive submodule/workspace scans.
+- **`depth` must be a non-negative integer.** `0` disables recursive child assessments.
 
 ## CLI-vs-config precedence
 
@@ -82,3 +82,11 @@ When no `.harnix.yaml` is present, Harnix runs with default behavior:
 - Recursive scan depth is unlimited
 
 No error or warning is produced when the config file is absent.
+
+## Noise and report outputs
+
+Inventory and child discovery use the same case-sensitive Git-compatible `.gitignore` rules from the scan root down. Deeper files override parent rules; the last matching rule in a file wins. Negations cannot restore files under an ignored parent directory. Anchored paths, directory-only patterns, wildcards, and escapes follow Git semantics. Rules above the scan root, global excludes, `.git/info/exclude`, and tracked-file exceptions are not consulted.
+
+Built-in exclusions take priority: `.git`, `.hg`, `.svn`, `node_modules`, `.next`, `dist`, `build`, `.venv`, `venv`, `__pycache__`, and `.cache`. Symlink aliases are omitted in favor of physical in-root paths. Declarations cannot bypass exclusions. Each target's file inventory includes all visible descendants regardless of assessment depth. Children inherit skip/only policy; child `.harnix.yaml` files are not loaded. Repo type is detected independently; explicit root type stays root-only.
+
+The selected dedicated output directory is excluded (default `<target>/harnix`). CLI `--output` resolves from the working directory; configuration `output` resolves from the scan root. Output equal to the scan root preserves unrelated files. Timestamp-named `report-YYYYMMDDTHHMMSS.md` and `.html` files are excluded anywhere only if their opening content identifies a Harnix report. After changing output paths, historical arbitrary custom directories are not recognized: add them to `.gitignore`. Renamed artifacts or edited report headers cannot reliably be recognized.

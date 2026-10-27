@@ -21,15 +21,15 @@ Per-check statuses are derived from percentage thresholds:
 - `△ partial`: >= 25%, < 75%
 - `✗ fail`: < 25%
 
-## Overall score
+## Local and rollup scores
 
-The current CLI computes overall score as the arithmetic mean of all evaluated checks:
+Local score is the fixed tier-weighted mean of evaluated checks, using weights 3/2/1 below. Skipped and inapplicable checks are excluded. No evaluated checks means unavailable, with no band; it does not mean 0%.
 
-```text
-overall = sum(check scores) / number of evaluated checks
-```
+Rollup equally averages the available local score and successfully scored direct children's effective scores (their rollup, otherwise local). Failed/unscanned targets and unavailable scores are omitted. Descendants influence the parent through their direct ancestor only. A leaf's rollup equals its local score. With no available local or child scores, rollup is unavailable. A target without local checks can still have a rollup from children.
 
-Skipped and inapplicable checks are excluded from the evaluated set.
+For root local 80%, child rollup 40%, and child local 60%, root rollup is 60%. Child size and importance are not weighted. Both scores are labeled separately in all report formats. The engine retains numeric `overallScore` as `rollupScore ?? localScore ?? 0` for compatibility; consumers must use the nullable fields to distinguish unavailable from zero.
+
+Every non-noise subdirectory is a scan target by default, including ordinary source/docs directories. Root-oriented checks can score these paths low and reduce rollup. This coverage expansion is deliberate; compare assessments using the same Harnix version, depth, and effective check set. `--depth 0` assesses only the root. Markdown/HTML retain full child findings, recommendations, references, and path-attributed errors; report size grows with target count.
 
 ## Qualitative bands
 
@@ -50,10 +50,10 @@ Each check has an assigned tier that influences its contribution to the overall 
 | <span class="check-badge check-badge--tier">important</span> | 2 | Significant signals that improve readiness but are not blockers |
 | <span class="check-badge check-badge--tier">nice-to-have</span> | 1 | Supplementary signals that indicate mature repository practices |
 
-The overall score is computed as a weighted average:
+The local score is computed as a weighted average:
 
 ```text
-overall = sum(check_score × tier_weight) / sum(tier_weight)
+local = sum(check_score × tier_weight) / sum(tier_weight)
 ```
 
 This means critical checks have three times the influence of nice-to-have checks on the final score.

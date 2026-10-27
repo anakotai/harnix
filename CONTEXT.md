@@ -65,11 +65,11 @@ A direct subdirectory of a scan target that is included in the recursive assessm
 _Avoid_: “only submodules”; “only npm workspaces”; treating only gitlinks as children; assessing dependency trees, VCS metadata, or other noise as readiness
 
 **Noise**:
-Paths that are never scan targets and never enter rollup — including VCS metadata (e.g. `.git`), dependency/install trees (e.g. `node_modules`), other non-project junk, and anything ignored by the scan target’s `.gitignore`. Harnix does not assess the “state of noise.”
+Paths that are never scan targets and never enter rollup — including VCS metadata (e.g. `.git`), dependency/install trees (e.g. `node_modules`), other non-project junk, dedicated assessment output and identifiable generated reports, and anything excluded by inherited or nested `.gitignore` rules within the scan root. Built-in exclusions win over negation; ignored parents cannot be rescued through children or aliases. Harnix does not assess the “state of noise.”
 _Avoid_: treating ignored or generated dependency trees as children; scoring `node_modules` / `.git`
 
 **Local score**:
-The heuristic signal-coverage score for one scan target from that path’s own evaluated checks only: a **tier-weighted mean** of those check scores (fixed shipped tier weights). Always available as the granular assessment for that path. Inapplicable and skipped checks are excluded from the mean.
+The heuristic signal-coverage score for one scan target from that path’s own evaluated checks only: a **tier-weighted mean** of those check scores (fixed shipped tier weights). Available as the granular assessment when that path has evaluated checks; otherwise unavailable, with no score band. Zero is an evaluated score, not a synonym for unavailable. Inapplicable and skipped checks are excluded from the mean.
 _Avoid_: using “overall” to mean only the local score when children exist; unweighted mean of checks; user-defined tier weights
 
 **Tier**:
@@ -85,7 +85,7 @@ A coverage-strength label for an aggregate score (Poor / Needs Improvement / Goo
 _Avoid_: readiness certification, letter grade of team maturity, prediction of agent productivity
 
 **Rollup score**:
-At a scan target that has scored **direct** children, the overall stance for that path: an equal-weight average of that path’s **local score** and each **successfully scored direct (1st) child’s** score only. Each child uses its own rollup when it has children, otherwise its local score — the same recursive rule at every level. Non-direct descendants are not averaged again at the parent; they influence the parent only through the direct child’s rollup. Children that fail to produce a score are omitted from the mean and surfaced as errors. Paths not scanned (e.g. beyond `--depth`) are not members of the mean. Child importance/weight is not assessed yet. Not worst-child-dominates. Parent and child may use different applicable check sets (different repo types); that does not block averaging their scores.
+At a scan target that has scored **direct** children, the overall stance for that path: an equal-weight average of that path’s **local score** and each **successfully scored direct (1st) child’s** score only. Each child uses its own rollup when it has children, otherwise its local score — the same recursive rule at every level. Non-direct descendants are not averaged again at the parent; they influence the parent only through the direct child’s rollup. Children that fail to produce a score are omitted from the mean and surfaced as errors. Paths not scanned (e.g. beyond `--depth`) are not members of the mean. Child importance/weight is not assessed yet. Unavailable when neither local nor direct children have scores; an unscored local target can still have a rollup from scored children. A leaf with an available local score has the same rollup. Not worst-child-dominates. Parent and child may use different applicable check sets (different repo types); that does not block averaging their scores.
 _Avoid_: min/weakest-link as the overall monorepo score; flat mean of the entire subtree; size-weighted rollup (not yet defined); counting failed children as zero; averaging only workspace/submodule children when the walk includes all subdirectories; applying check tiers inside the parent/child rollup average
 
 **Repo type**:
@@ -109,5 +109,5 @@ The CLI process exit code is about run success (could the assessment complete?),
 _Avoid_: treating exit 0 as “agents will succeed”; treating any partial score as a CI failure without an explicit threshold feature
 
 **Secondary concerns**:
-Plugin-style check extensibility, Anakot HaaS integration, subrepo importance weighting for rollup, full productization of non-noise recursive walk + rollup scoring (domain intent; not all of it is shipped yet), and optional CI fail-under thresholds support or extend Harnix but do not redefine its primary job as an assessment toolkit for project owners and agents. Default success exit is not a readiness certification. Network use outside assessment (package install, docs sites, HaaS) is out of band. CI is a secondary consumer, not a dual-primary audience with owners and agents.
+Plugin-style check extensibility, Anakot HaaS integration, subrepo importance weighting for rollup, and optional CI fail-under thresholds support or extend Harnix but do not redefine its primary job as an assessment toolkit for project owners and agents. Default success exit is not a readiness certification. Network use outside assessment (package install, docs sites, HaaS) is out of band. CI is a secondary consumer, not a dual-primary audience with owners and agents.
 _Avoid_: treating the check framework, HaaS, or CI gating as the product identity

@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import ignore from "ignore";
 import { parseDocument } from "yaml";
 
 const SOFTWARE_MARKERS = [
@@ -32,7 +33,7 @@ const ROOT_WORKSPACE_MARKERS: Record<string, string> = {
   turborepo: "turbo.json"
 };
 
-const IGNORED_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"]);
+const IGNORED_DIRS = new Set([".git", ".hg", ".svn", "node_modules", ".next", "dist", "build", ".venv", "venv", "__pycache__", ".cache"]);
 
 /**
  * Normalize a relative path from manifests (posix slashes, strip ./ and trailing /).
@@ -121,104 +122,102 @@ export async function resolveContainedChildPathAsync(
   return lexical;
 }
 
-export async function listFiles(rootPath: string): Promise<string[]> {
-  const files: string[] = [];
-  const rootResolved = path.resolve(rootPath);
-  let rootReal: string;
-  try {
-    rootReal = await fs.realpath(rootResolved);
-  } catch {
-    rootReal = rootResolved;
+export interface InventoryNode {
+  absolutePath: string;
+  files: string[];
+  children: InventoryNode[];
+  error?: string;
+}
+
+interface IgnoreScope {
+  base: string;
+  matcher: ReturnType<typeof ignore>;
+}
+
+/** One physical walk, shared by inventories and assessment discovery. */
+export async function inventoryTree(rootPath: string, outputPath?: string): Promise<InventoryNode> {
+  const root = await fs.realpath(path.resolve(rootPath));
+  const output = path.resolve(outputPath ?? path.join(root, "harnix"));
+  let outputReal = output;
+  try { outputReal = await fs.realpath(output); } catch { /* Output may not exist yet. */ }
+
+  function builtInNoise(absolute: string, directory: boolean): boolean {
+    const relative = path.relative(root, absolute).split(path.sep);
+    const directoryParts = directory ? relative : relative.slice(0, -1);
+    if (directoryParts.some((part) => IGNORED_DIRS.has(part))) return true;
+    if ([".git", ".hg", ".svn"].includes(path.basename(absolute))) return true;
+    // Never exclude the scan root, or an ancestor selected as output.
+    return directory && absolute === outputReal && absolute !== root;
   }
 
-  /** Real directories already entered — breaks symlink cycles and diamond links. */
-  const visitedDirReals = new Set<string>();
-
-  async function directoryRealIfInside(absolutePath: string): Promise<string | null> {
-    try {
-      const stats = await fs.stat(absolutePath);
-      if (!stats.isDirectory()) {
-        return null;
-      }
-      const real = await fs.realpath(absolutePath);
-      if (!isResolvedInsideRoot(rootReal, real)) {
-        return null;
-      }
-      return real;
-    } catch {
-      return null;
+  function ignored(absolute: string, directory: boolean, scopes: IgnoreScope[]): boolean {
+    let excluded = false;
+    for (const scope of scopes) {
+      const relative = path.relative(scope.base, absolute).split(path.sep).join("/") + (directory ? "/" : "");
+      const result = scope.matcher.test(relative);
+      if (result.ignored) excluded = true;
+      else if (result.unignored) excluded = false;
     }
+    return excluded;
   }
 
-  async function walk(relativeDir: string): Promise<void> {
-    const absoluteDir =
-      relativeDir === "." || relativeDir === ""
-        ? rootResolved
-        : path.join(rootResolved, relativeDir);
-
-    const dirReal = await directoryRealIfInside(absoluteDir);
-    if (!dirReal || visitedDirReals.has(dirReal)) {
-      return;
-    }
-    visitedDirReals.add(dirReal);
-
-    let entries: import("node:fs").Dirent[];
+  async function generatedReport(absolute: string): Promise<boolean> {
+    if (!/^report-\d{8}T\d{6}\.(?:md|html)$/.test(path.basename(absolute))) return false;
+    // A filename alone is not proof: preserve unrelated user documents.
+    const handle = await fs.open(absolute, "r");
     try {
-      entries = await fs.readdir(absoluteDir, { withFileTypes: true });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Failed to read directory "${absoluteDir}" while scanning "${rootPath}": ${message}`,
-        { cause: error },
-      );
-    }
+      const buffer = Buffer.alloc(512);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+      const start = buffer.subarray(0, bytesRead).toString("utf8");
+      return start.startsWith("# Harnix Harness Readiness Report\n") ||
+        start.includes("<title>Harnix Harness Readiness Report</title>");
+    } finally { await handle.close(); }
+  }
 
-    for (const entry of entries) {
-      const relativePath =
-        relativeDir === "." || relativeDir === ""
-          ? entry.name
-          : path.join(relativeDir, entry.name);
-      const absolutePath = path.join(rootResolved, relativePath);
-
-      const childDirReal = await directoryRealIfInside(absolutePath);
-      if (childDirReal) {
-        if (!IGNORED_DIRS.has(entry.name) && !visitedDirReals.has(childDirReal)) {
-          await walk(relativePath);
-        }
-        continue;
-      }
-
-      // Skip broken links / external symlink targets that look like non-dirs after stat failure.
-      // Only include entries that exist as non-directory (or symlink-to-file) inside the root.
+  async function walk(absolutePath: string, inherited: IgnoreScope[]): Promise<InventoryNode> {
+    const node: InventoryNode = { absolutePath, files: [], children: [] };
+    try {
+      const scopes = [...inherited];
+      const ignorePath = path.join(absolutePath, ".gitignore");
       try {
-        const stats = await fs.lstat(absolutePath);
-        if (stats.isSymbolicLink()) {
-          try {
-            const targetStats = await fs.stat(absolutePath);
-            if (targetStats.isDirectory()) {
-              // External or already-visited dir — already handled / skipped above.
-              continue;
-            }
-            const targetReal = await fs.realpath(absolutePath);
-            if (!isResolvedInsideRoot(rootReal, targetReal)) {
-              continue;
-            }
-          } catch {
-            continue;
-          }
-        } else if (stats.isDirectory()) {
-          continue;
+        // Git does not follow symlinked .gitignore files.
+        if ((await fs.lstat(ignorePath)).isFile()) {
+          scopes.push({ base: absolutePath, matcher: ignore({ ignorecase: false }).add(await fs.readFile(ignorePath, "utf8")) });
         }
-      } catch {
-        continue;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-
-      files.push(relativePath);
+      const entries = (await fs.readdir(absolutePath, { withFileTypes: true }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of entries) {
+        const absolute = path.join(absolutePath, entry.name);
+        // Use the physical in-root identity. Every contained symlink target is
+        // reached at its real path, with its own ignore rules; aliases cannot
+        // rescue excluded targets, duplicate them, or create cycles.
+        if (entry.isSymbolicLink()) continue;
+        const directory = entry.isDirectory();
+        if (builtInNoise(absolute, directory) || ignored(absolute, directory, scopes)) continue;
+        if (directory) {
+          const child = await walk(absolute, scopes);
+          node.children.push(child);
+          for (const file of child.files) node.files.push(`${entry.name}/${file}`);
+        } else if (entry.isFile() && !(await generatedReport(absolute))) {
+          node.files.push(entry.name);
+        }
+      }
+    } catch (error) {
+      node.error = `Failed to read directory "${absolutePath}": ${error instanceof Error ? error.message : String(error)}`;
     }
+    return node;
   }
 
-  await walk(".");
-  return files.map((filePath) => filePath.replace(/^[.][/\\]/, ""));
+  const tree = await walk(root, []);
+  if (tree.error) throw new Error(tree.error);
+  return tree;
+}
+
+export async function listFiles(rootPath: string): Promise<string[]> {
+  return (await inventoryTree(rootPath)).files;
 }
 
 export function detectRepoType(files: string[]): "software" | "non-software" {

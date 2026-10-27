@@ -67,10 +67,10 @@ harnix scan . --type non-software
 
 ### `--depth <n>`
 
-Limit recursive scanning of submodules/workspaces by depth.
+Limit recursive scanning of non-noise subdirectories by depth.
 
 - `0` scans only the target repository.
-- `1` scans the target plus direct submodules/workspaces.
+- `1` scans the target plus direct non-noise subdirectories.
 - `2` includes one additional nested level, and so on.
 - If omitted, depth is unlimited (current behavior).
 

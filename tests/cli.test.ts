@@ -39,6 +39,8 @@ function makeResult(absolutePath: string): ScanResult {
       },
     },
     overallScore: 1,
+    localScore: 1,
+    rollupScore: 1,
     checks: [],
     recursiveScans: [],
   };

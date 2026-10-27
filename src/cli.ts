@@ -73,7 +73,7 @@ function printScanHelp(): void {
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");
   console.log("  --type <type>    Override repo type (software | non-software)");
-  console.log("  --depth <n>      Recursive scan depth for submodules/workspaces (0 = root only)");
+  console.log("  --depth <n>      Assessment depth for non-noise subdirectories (0 = root only)");
   console.log("  --help, -h       Show this help text");
 }
 
@@ -410,11 +410,14 @@ export async function runCli(args: string[]): Promise<void> {
     skipIds: effectiveSkipIds,
     onlyIds: effectiveOnlyIds,
     repoType: effectiveRepoType,
-    maxDepth: effectiveDepth
+    maxDepth: effectiveDepth,
+    outputPath: resolvedOutputPath
   });
   const harnixVersion = await readVersion();
   printConsoleReport(targetPath, result.checks, result.overallScore, {
     verbose,
+    localScore: result.localScore,
+    rollupScore: result.rollupScore,
     recursiveScans: result.recursiveScans,
     harnixVersion
   });
@@ -424,7 +427,7 @@ export async function runCli(args: string[]): Promise<void> {
     result.checks,
     result.overallScore,
     resolvedOutputPath,
-    { recursiveScans: result.recursiveScans, harnixVersion }
+    { recursiveScans: result.recursiveScans, harnixVersion, localScore: result.localScore, rollupScore: result.rollupScore }
   );
   console.log("");
   console.log(bold("Reports written:"));

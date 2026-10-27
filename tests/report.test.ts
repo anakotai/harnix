@@ -156,14 +156,15 @@ describe("printConsoleReport", () => {
     expect(() => printConsoleReport("/test/repo", sampleChecks, 0.65)).not.toThrow();
   });
 
-  it("prints overall score with the percent outside the colored band token", () => {
+  it("prints separately labeled local and rollup scores", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     try {
       printConsoleReport("/test/repo", sampleChecks, 0.65);
 
       const calls = logSpy.mock.calls.map(([value]) => value);
-      expect(calls[2]).toBe("Overall score: Good (65%)");
+      expect(calls[2]).toBe("Local score: 65% (Good)");
+      expect(calls[3]).toBe("Rollup score: 65% (Good)");
     } finally {
       logSpy.mockRestore();
     }
@@ -192,7 +193,7 @@ describe("printConsoleReport", () => {
       expect(headingIndex).toBeGreaterThan(0);
       expect(calls[headingIndex - 1]).toBe("");
       expect(calls[headingIndex]).toContain("Monorepo breakdown:");
-      expect(calls[headingIndex + 1]).toBe("- Submodule submodules/core: Poor (24%)");
+      expect(calls[headingIndex + 1]).toBe("- Submodule submodules/core: Local score: 24% (Poor); Rollup score: 24% (Poor)");
     } finally {
       logSpy.mockRestore();
     }
@@ -226,8 +227,8 @@ describe("printConsoleReport", () => {
       });
 
       const calls = logSpy.mock.calls.map(([value]) => value);
-      expect(calls).toContain("- Submodule software: Good (58%)");
-      expect(calls).toContain("- Submodule software/harnix: Good (59%)");
+      expect(calls).toContain("- Submodule software: Local score: 58% (Good); Rollup score: 58% (Good)");
+      expect(calls).toContain("- Submodule software/harnix: Local score: 59% (Good); Rollup score: 59% (Good)");
     } finally {
       logSpy.mockRestore();
     }

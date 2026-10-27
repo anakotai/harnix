@@ -1,6 +1,6 @@
 {
   "name": "harnix",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "description": "Open-source harness readiness scanner",
   "type": "module",
   "bin": {
@@ -37,6 +37,7 @@
     "node": ">=20.11.0"
   },
   "dependencies": {
+    "ignore": "^7.0.14",
     "yaml": "^2.8.3",
     "zod": "^4.6.6"
   },

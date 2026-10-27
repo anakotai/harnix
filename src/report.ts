@@ -8,7 +8,6 @@ const ANSI_RESET = "\u001b[0m";
 const ANSI_BOLD = "\u001b[1m";
 const ANSI_RED = "\u001b[31m";
 const ANSI_GREEN = "\u001b[32m";
-const ANSI_LIGHT_GREEN = "\u001b[92m";
 const ANSI_ORANGE = "\u001b[38;5;208m";
 
 function supportsAnsiStyling(): boolean {
@@ -27,19 +26,6 @@ function styleAnsi(text: string, ...codes: string[]): string {
 
 function bold(text: string): string {
   return styleAnsi(text, ANSI_BOLD);
-}
-
-function overallColorCode(scorePercent: number): string {
-  if (scorePercent <= 25) {
-    return ANSI_RED;
-  }
-  if (scorePercent <= 50) {
-    return ANSI_ORANGE;
-  }
-  if (scorePercent <= 75) {
-    return ANSI_LIGHT_GREEN;
-  }
-  return ANSI_GREEN;
 }
 
 export function overallBand(scorePercent: number): string {
@@ -79,12 +65,8 @@ function formatPercent(score: number): string {
   return `${Math.round(score * 100)}%`;
 }
 
-function formatBandWithPercent(band: string, scorePercent: number): string {
-  return `${styleAnsi(band, overallColorCode(scorePercent))} (${scorePercent}%)`;
-}
-
-function formatRecursiveKind(kind: "submodule" | "workspace"): string {
-  return kind === "submodule" ? "Submodule" : "Workspace";
+function formatRecursiveKind(kind: "directory" | "submodule" | "workspace"): string {
+  return kind === "submodule" ? "Submodule" : kind === "workspace" ? "Workspace" : "Directory";
 }
 
 function escapeMarkdownCell(value: string): string {
@@ -279,52 +261,77 @@ function formatRecommendationLine(item: RankedRecommendation): string {
 }
 
 interface RecursiveScanInput {
-  kind: "submodule" | "workspace";
+  kind: "directory" | "submodule" | "workspace";
   path: string;
-  result?: { overallScore?: number; checks?: unknown[]; recursiveScans?: RecursiveScanInput[] };
+  result?: { overallScore?: number; localScore?: number | null; rollupScore?: number | null; checks?: unknown[]; recursiveScans?: RecursiveScanInput[] };
   error?: string;
 }
 
 type RecursiveEntry =
-  | { kind: "submodule" | "workspace"; path: string; error: string }
-  | { kind: "submodule" | "workspace"; path: string; overallScore: number; overallPercent: number; band: string; checks: number };
+  | { kind: RecursiveScanInput["kind"]; path: string; error: string }
+  | { kind: RecursiveScanInput["kind"]; path: string; local: string; rollup: string; checks: number; findings: CheckResult[] };
 
-function collectRecursiveEntries(
-  recursiveScans: RecursiveScanInput[],
-  parentPath = ""
-): RecursiveEntry[] {
+function displayScore(score: number | null | undefined): string {
+  if (score == null) return "Unavailable";
+  const percent = Math.round(score * 100);
+  return `${percent}% (${overallBand(percent)})`;
+}
+
+function scorePair(checks: CheckResult[], overallScore: number, options: ReportOptions): { local: string; rollup: string } {
+  const local = options.localScore !== undefined ? options.localScore : checks.length ? overallScore : null;
+  const rollup = options.rollupScore !== undefined ? options.rollupScore : local;
+  return { local: displayScore(local), rollup: displayScore(rollup) };
+}
+
+function collectRecursiveEntries(recursiveScans: RecursiveScanInput[], parentPath = ""): RecursiveEntry[] {
   const entries: RecursiveEntry[] = [];
-
   for (const scan of recursiveScans) {
     const fullPath = parentPath ? `${parentPath}/${scan.path}` : scan.path;
-
-    if (scan.error || !scan.result || typeof scan.result.overallScore !== "number") {
-      entries.push({
-        kind: scan.kind,
-        path: fullPath,
-        error: scan.error ?? "Scan failed"
-      });
+    if (scan.error || !scan.result) {
+      entries.push({ kind: scan.kind, path: fullPath, error: scan.error ?? "Scan failed" });
       continue;
     }
-
-    const overallPercent = Math.round(scan.result.overallScore * 100);
-    const checkCount = Array.isArray(scan.result.checks) ? scan.result.checks.length : 0;
-    entries.push({
-      kind: scan.kind,
-      path: fullPath,
-      overallScore: scan.result.overallScore,
-      overallPercent,
-      band: overallBand(overallPercent),
-      checks: checkCount
-    });
-
-    const nestedScans = Array.isArray(scan.result.recursiveScans) ? scan.result.recursiveScans : [];
-    if (nestedScans.length > 0) {
-      entries.push(...collectRecursiveEntries(nestedScans, fullPath));
-    }
+    const findings = (scan.result.checks ?? []) as CheckResult[];
+    const local = scan.result.localScore !== undefined ? scan.result.localScore : findings.length ? scan.result.overallScore : null;
+    const rollup = scan.result.rollupScore !== undefined ? scan.result.rollupScore : local;
+    entries.push({ kind: scan.kind, path: fullPath, local: displayScore(local), rollup: displayScore(rollup), checks: findings.length, findings });
+    entries.push(...collectRecursiveEntries(scan.result.recursiveScans ?? [], fullPath));
   }
-
   return entries;
+}
+
+function childMarkdown(entries: RecursiveEntry[]): string {
+  return entries.map((entry) => {
+    const heading = `## Scan target: ${escapeMarkdownText(entry.path)}`;
+    if ("error" in entry) return `${heading}\n\nScan failed: ${escapeMarkdownText(entry.error)}\n`;
+    const findings = entry.findings.map((check) => [
+      `### ${check.name} (${check.id})`,
+      `Category: ${formatCategoryLabel(check.category)}; Tier: ${check.tier}; Score: ${formatPercent(check.score)} (${check.status})`,
+      check.summary, check.details, `Why this matters: ${check.whyThisMatters}`,
+      "References:", ...check.references.map((ref) => `- ${ref}`),
+      "Recommendations:", ...check.recommendations.map((rec) => `- ${rec}`)
+    ].join("\n\n")).join("\n\n");
+    return `${heading}\n\nLocal score: ${entry.local}\n\nRollup score: ${entry.rollup}\n\n${findings}\n`;
+  }).join("\n");
+}
+
+function escapeMarkdownText(value: string): string {
+  return value.replace(/[\\`*_[\]<>#|]/g, (char) => `\\${char}`).replace(/[\r\n]/g, " ");
+}
+
+function childHtml(entries: RecursiveEntry[]): string {
+  return entries.map((entry) => {
+    const heading = `<h2>Scan target: ${escapeHtml(entry.path)}</h2>`;
+    if ("error" in entry) return `${heading}<p>Scan failed: ${escapeHtml(entry.error)}</p>`;
+    return `${heading}<p>Local score: ${escapeHtml(entry.local)}</p><p>Rollup score: ${escapeHtml(entry.rollup)}</p>` +
+      entry.findings.map((check) => `<details class="check-detail"><summary>${escapeHtml(check.name)} (${escapeHtml(check.id)})</summary><div class="check-body">
+        <p>Category: ${escapeHtml(formatCategoryLabel(check.category))}; Tier: ${escapeHtml(check.tier)}; Score: ${formatPercent(check.score)} (${escapeHtml(check.status)})</p>
+        <p>${escapeHtml(check.summary)}</p><p>${escapeHtml(check.details).replaceAll("\n", "<br>")}</p>
+        <p>Why this matters: ${escapeHtml(check.whyThisMatters)}</p>
+        <p>References</p><ul>${check.references.map((ref) => `<li>${escapeHtml(ref)}</li>`).join("")}</ul>
+        <p>Recommendations</p><ul>${check.recommendations.map((rec) => `<li>${escapeHtml(rec)}</li>`).join("")}</ul>
+        </div></details>`).join("");
+  }).join("\n");
 }
 
 function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntry[] {
@@ -340,11 +347,8 @@ function recursiveBreakdown(recursiveScans: RecursiveScanInput[]): RecursiveEntr
 export interface ReportOptions {
   recursiveScans?: RecursiveScanInput[];
   harnixVersion?: string;
-}
-
-function scoreLabel(hasChildren: boolean): string {
-  // Until rollup is productized, root score is local-only; avoid calling it "overall" when children exist.
-  return hasChildren ? "Local score" : "Overall score";
+  localScore?: number | null;
+  rollupScore?: number | null;
 }
 
 export function buildMarkdownReport(
@@ -354,14 +358,12 @@ export function buildMarkdownReport(
   timestamp: string,
   options: ReportOptions = {}
 ): string {
-  const overallPercent = Math.round(overallScore * 100);
-  const band = overallBand(overallPercent);
+  const scores = scorePair(checks, overallScore, options);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
   const recursiveInput = options.recursiveScans ?? [];
   const recommendations = topRecommendations(checks, recursiveInput);
   const recursiveScans = recursiveBreakdown(recursiveInput);
-  const hasChildren = recursiveScans.length > 0;
   const versionLine =
     typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
       ? [`- Harnix version: **${options.harnixVersion}**`]
@@ -372,8 +374,8 @@ export function buildMarkdownReport(
     "",
     "## Executive Summary",
     "",
-    `- ${scoreLabel(hasChildren)}: **${overallPercent}%**`,
-    `- Qualitative band: **${band}**`,
+    `- Local score: **${scores.local}**`,
+    `- Rollup score: **${scores.rollup}**`,
     ...versionLine,
     `- Generated: ${timestamp}`,
     `- Scanned path: \`${scannedPath}\``,
@@ -398,19 +400,19 @@ export function buildMarkdownReport(
   }
 
   if (recursiveScans.length > 0) {
-    lines.push("", "## Workspace and Submodule Breakdown", "");
-    lines.push("| Type | Path | Overall | Band | Checks |");
+    lines.push("", "## Child Scan Targets", "");
+    lines.push("| Type | Path | Local score | Rollup score | Checks |");
     lines.push("|---|---|---:|---|---:|");
     for (const entry of recursiveScans) {
       if ("error" in entry) {
         lines.push(
-          `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | N/A | Scan failed | 0 |`
+          `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | Unavailable | Scan failed: ${escapeMarkdownCell(entry.error)} | 0 |`
         );
         continue;
       }
 
       lines.push(
-        `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | ${entry.overallPercent}% | ${escapeMarkdownCell(entry.band)} | ${entry.checks} |`
+        `| ${formatRecursiveKind(entry.kind)} | \`${escapeMarkdownCell(entry.path)}\` | ${entry.local} | ${entry.rollup} | ${entry.checks} |`
       );
     }
   }
@@ -443,6 +445,7 @@ export function buildMarkdownReport(
     }
   }
 
+  lines.push(childMarkdown(recursiveScans));
   lines.push("## Prioritized Recommendations", "");
   if (recommendations.length > 0) {
     recommendations.forEach((item, index) => {
@@ -465,13 +468,11 @@ export function buildHtmlReport(
   timestamp: string,
   options: ReportOptions = {}
 ): string {
-  const overallPercent = Math.round(overallScore * 100);
-  const band = overallBand(overallPercent);
+  const scores = scorePair(checks, overallScore, options);
   const categoryScores = categoryBreakdown(checks);
   const counts = statusCounts(checks);
   const recursiveInput = options.recursiveScans ?? [];
   const recursiveScans = recursiveBreakdown(recursiveInput);
-  const hasChildren = recursiveScans.length > 0;
   const versionMeta =
     typeof options.harnixVersion === "string" && options.harnixVersion.length > 0
       ? ` • Harnix ${escapeHtml(options.harnixVersion)}`
@@ -517,22 +518,17 @@ export function buildHtmlReport(
         return `<tr>
   <td>${escapeHtml(formatRecursiveKind(entry.kind))}</td>
   <td><code>${escapeHtml(entry.path)}</code></td>
-  <td colspan="4">Scan failed</td>
+  <td colspan="3">Scan failed: ${escapeHtml(entry.error)}</td>
 </tr>`;
       }
 
       return `<tr>
   <td>${escapeHtml(formatRecursiveKind(entry.kind))}</td>
   <td><code>${escapeHtml(entry.path)}</code></td>
-  <td>${escapeHtml(String(entry.overallPercent))}%</td>
-  <td>${escapeHtml(entry.band)}</td>
+  <td>${escapeHtml(entry.local)}</td>
+  <td>${escapeHtml(entry.rollup)}</td>
   <td>${entry.checks}</td>
-  <td>
-    <div class="score-track" aria-hidden="true">
-      <div class="score-fill" style="width: ${entry.overallPercent}%"></div>
-    </div>
-    <span class="metric-label">${entry.overallPercent}%</span>
-  </td>
+
 </tr>`;
     })
     .join("\n");
@@ -812,12 +808,8 @@ ${recommendationItems}
 
     <h2>Executive Summary</h2>
     <div class="summary-card">
-      <p><strong>${escapeHtml(scoreLabel(hasChildren))}:</strong> ${escapeHtml(String(overallPercent))}%</p>
-      <div class="score-track" aria-hidden="true">
-        <div class="score-fill" style="width: ${overallPercent}%"></div>
-      </div>
-      <span class="metric-label">${overallPercent}% signal coverage</span>
-      <p><strong>Qualitative band:</strong> ${escapeHtml(band)}</p>
+      <p><strong>Local score:</strong> ${escapeHtml(scores.local)}</p>
+      <p><strong>Rollup score:</strong> ${escapeHtml(scores.rollup)}</p>
       <p><strong>Checks evaluated:</strong> ${checks.length} (${counts.pass} pass, ${counts.partial} partial, ${counts.fail} fail)</p>
       ${
         checks.length === 0
@@ -846,16 +838,15 @@ ${categoryRows}
 
     ${
       recursiveRows
-        ? `<h2>Workspace and Submodule Breakdown</h2>
+        ? `<h2>Child Scan Targets</h2>
     <table>
       <thead>
         <tr>
           <th>Type</th>
           <th>Path</th>
-          <th>Overall</th>
-          <th>Band</th>
+          <th>Local score</th>
+          <th>Rollup score</th>
           <th>Checks</th>
-          <th>Visualization</th>
         </tr>
       </thead>
       <tbody>
@@ -884,6 +875,8 @@ ${resultRows}
 
     <h2>Detailed Findings</h2>
 ${detailsSections}
+
+    ${childHtml(recursiveScans)}
 
     <h2>Prioritized Recommendations</h2>
     <ol>
@@ -988,23 +981,22 @@ export function printConsoleReport(
     verbose?: boolean;
     recursiveScans?: RecursiveScanInput[];
     harnixVersion?: string;
+    localScore?: number | null;
+    rollupScore?: number | null;
   } = {}
 ): void {
   const verbose = options.verbose === true;
-  const overallPercent = Math.round(overallScore * 100);
-  const band = overallBand(overallPercent);
+  const scores = scorePair(checks, overallScore, options);
   const recursiveInput = options.recursiveScans ?? [];
   const recursiveScans = recursiveBreakdown(recursiveInput);
-  const hasChildren = recursiveScans.length > 0;
 
   console.log(bold(`Harness Readiness Report: ${targetPath}`));
   console.log("───────────────────────────────────────");
   if (typeof options.harnixVersion === "string" && options.harnixVersion.length > 0) {
     console.log(`Harnix ${options.harnixVersion}`);
   }
-  console.log(
-    `${bold(`${scoreLabel(hasChildren)}:`)} ${formatBandWithPercent(band, overallPercent)}`
-  );
+  console.log(`${bold("Local score:")} ${scores.local}`);
+  console.log(`${bold("Rollup score:")} ${scores.rollup}`);
   if (checks.length === 0) {
     console.log(
       "Warning: no checks were evaluated (check --only/--skip filters and repo type applicability)."
@@ -1015,10 +1007,10 @@ export function printConsoleReport(
     console.log(bold("Monorepo breakdown:"));
     for (const entry of recursiveScans) {
       if ("error" in entry) {
-        console.log(`- ${formatRecursiveKind(entry.kind)} ${entry.path}: scan failed`);
+        console.log(`- ${formatRecursiveKind(entry.kind)} ${entry.path}: scan failed: ${entry.error}`);
       } else {
         console.log(
-          `- ${formatRecursiveKind(entry.kind)} ${entry.path}: ${formatBandWithPercent(entry.band, entry.overallPercent)}`
+          `- ${formatRecursiveKind(entry.kind)} ${entry.path}: Local score: ${entry.local}; Rollup score: ${entry.rollup}`
         );
       }
     }

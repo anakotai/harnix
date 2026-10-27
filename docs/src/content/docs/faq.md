@@ -9,11 +9,11 @@ No. Harnix operates entirely offline. It reads files from the local filesystem a
 
 ## Does Harnix support monorepos?
 
-Yes. Harnix automatically detects Git submodules (via `.gitmodules`) and workspace configurations (npm workspaces in `package.json`, Yarn/pnpm `workspace` fields, Nx `nx.json`, Turborepo `turbo.json`, and Lerna `lerna.json`). When submodules or workspaces are found, the `repo-structure` check evaluates organizational quality signals such as source directory presence, root-file ratio, and workspace config coherence. Harnix also performs recursive scans of discovered submodules and workspaces, reporting per-component scores alongside the top-level assessment.
+Yes. Harnix automatically detects Git submodules (via `.gitmodules`) and workspace configurations (npm workspaces in `package.json`, Yarn/pnpm `workspace` fields, Nx `nx.json`, Turborepo `turbo.json`, and Lerna `lerna.json`). When submodules or workspaces are found, the `repo-structure` check evaluates organizational quality signals such as source directory presence, root-file ratio, and workspace config coherence. Harnix assesses every non-noise directory recursively, including ordinary source/docs directories. Declarations annotate the directory tree. Reports show separate local and rollup scores and retain full child findings. Root-oriented checks can give source directories lower scores, reducing the rollup. Use `--depth 0` for root-only assessment.
 
 ## Can I customize the scoring?
 
-Harnix uses a fixed tier-weighted scoring model where each check has a tier (`critical`, `important`, or `nice-to-have`) with corresponding weights of 3, 2, and 1. The overall score is a weighted average of all evaluated checks. You cannot change tier assignments or weights through configuration.
+Harnix uses a fixed tier-weighted scoring model where each check has a tier (`critical`, `important`, or `nice-to-have`) with corresponding weights of 3, 2, and 1. The local score is a weighted average of evaluated checks; rollup equally averages available local and direct child effective scores. You cannot change tier assignments or weights through configuration.
 
 However, you can influence which checks contribute to the score:
 
