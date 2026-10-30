@@ -16,13 +16,13 @@ Each scan produces:
 ## First scan
 
 ```bash
-npx harnix scan .
+pnpm dlx harnix scan .
 ```
 
 You can also scan a specific path:
 
 ```bash
-npx harnix scan /path/to/repository
+pnpm dlx harnix scan /path/to/repository
 ```
 
 ## What to expect in output

@@ -10,10 +10,10 @@ Supported categories are equally weighted when applicable:
 
 | Category | Applicability | Example |
 |---|---|---|
-| Setup | Nonempty dependencies, devDependencies, or optionalDependencies | `npm ci` |
-| Verification | Nonempty test script or local test suite | `npm test` |
-| Build | Nonempty build script | `npm run build` |
-| Run | Nonempty start or dev script | `npm run dev` |
+| Setup | Nonempty dependencies, devDependencies, or optionalDependencies | `pnpm install --frozen-lockfile` |
+| Verification | Nonempty test script or local test suite | `pnpm test` |
+| Build | Nonempty build script | `pnpm run build` |
+| Run | Nonempty start or dev script | `pnpm run dev` |
 
 Local test suites use JS/TS `.test` or `.spec` filenames, or files under `test/`, `tests/`, or `__tests__/`; nested packages, vendored trees, and noise do not establish a local suite. With no applicable categories the check is not assessed. Missing examples score zero only in applicable categories. Unsupported categories are not negative evidence. Overall and category scores exclude not-assessed checks; a run with no evaluated checks has an unavailable local score and warns that nothing was evaluated. The numeric overallScore compatibility alias remains zero when no local or rollup score is available.
 
@@ -21,10 +21,10 @@ Local test suites use JS/TS `.test` or `.spec` filenames, or files under `test/`
 
 Only fenced code and inline backtick code count, including in README.txt. Keyword-only prose and HTML comments do not count. Commands must start a code line or a simple `&&`, `||`, or `;` segment; an optional `$` prompt is supported.
 
-- Setup: `npm install`, `npm i`, `npm ci`, `pnpm install`, `pnpm i`, `yarn`, `yarn install`, `bun install`, `bun i`. Package operands and global installs do not count as repository setup.
-- Verification: `npm test`, or `npm run test`; pnpm/yarn/Bun accept `test` with or without `run`.
-- Build: `npm run build`; pnpm/yarn/Bun accept `build` with or without `run`.
-- Run: `npm start`, `npm run start`, `npm run dev`; pnpm/yarn/Bun accept `start` or `dev` with or without `run`.
+- Setup: `pnpm install`, `npm i`, `pnpm install --frozen-lockfile`, `pnpm install`, `pnpm i`, `yarn`, `yarn install`, `bun install`, `bun i`. Package operands and global installs do not count as repository setup.
+- Verification: `pnpm test`, or `pnpm run test`; pnpm/yarn/Bun accept `test` with or without `run`.
+- Build: `pnpm run build`; pnpm/yarn/Bun accept `build` with or without `run`.
+- Run: `npm start`, `pnpm run start`, `pnpm run dev`; pnpm/yarn/Bun accept `start` or `dev` with or without `run`.
 
 Simple trailing option flags are supported. Script arguments after `--` may be present. Angle-bracket, brace, environment-variable, TODO/CHANGEME, and ellipsis placeholders cause that command segment to be ignored. This intentionally bounded recognizer is not a shell or Markdown parser: wrappers, environment assignments, indented code blocks, quoted executables, options before the subcommand, direct tool invocations, and arbitrary script names may be missed. Working-directory changes are not tracked, so commands intended for another subproject may count. Script references are not validated against the manifest; an example's presence does not prove it is usable or current.
 

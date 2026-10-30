@@ -118,7 +118,7 @@ Compatibility policy:
 
 - `schemaVersion` is a `MAJOR.MINOR` string. The published schema constrains it to the current major (`^1\.\d+$`), so additive `1.x` reports validate against the same schema. Consumers should validate against the schema for the major version they support.
 - The major version changes for removed or renamed fields, tightened required fields, changed types, changed score units, changed `null` semantics, or changed path interpretation.
-- The minor version changes for additive optional fields and new values in documented extensible string fields. The schema file is regenerated with `npm run schema`, and a test fails if the checked-in schema drifts.
+- The minor version changes for additive optional fields and new values in documented extensible string fields. The schema file is regenerated with `pnpm run schema`, and a test fails if the checked-in schema drifts.
 - Consumers must ignore unknown fields and tolerate unknown values for extensible strings such as child `kind`, check `status`, `repoTypeSource`, `localScoreState`, and `rollupState`. Unknown states must not be treated as success or as a zero score.
 - A higher minor version is compatible with the same major version. A different major version requires explicit consumer support.
 

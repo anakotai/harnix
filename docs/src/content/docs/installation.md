@@ -13,7 +13,7 @@ description: Install and run Harnix using npm, npx, or from source.
 Run Harnix directly without installing it globally. This downloads and executes the latest published version:
 
 ```bash
-npx harnix scan .
+pnpm dlx harnix scan .
 ```
 
 ## Global install
@@ -21,7 +21,7 @@ npx harnix scan .
 Install Harnix globally to use the `harnix` command from any directory:
 
 ```bash
-npm install --global harnix
+pnpm install --global harnix
 harnix scan .
 ```
 
@@ -30,7 +30,7 @@ harnix scan .
 ```bash
 git clone https://github.com/anakotai/harnix.git
 cd harnix
-npm install
+pnpm install
 node bin/harnix.js scan .
 ```
 
@@ -63,5 +63,5 @@ npm update --global harnix
 When using `npx`, you always get the latest published version by default. To pin a specific version:
 
 ```bash
-npx harnix@0.14.0 scan .
+pnpm dlx harnix@0.14.0 scan .
 ```

@@ -1,0 +1,7 @@
+
+- date: 2026-10-30 12:53
+  task: Migrate Node tooling and CI to pnpm
+  who: Emi
+  status: done
+  repo: harnix
+  ref: "https://github.com/anakotai/harnix/issues/36"

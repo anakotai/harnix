@@ -136,7 +136,7 @@ For an example of bounded, local-only guidance discovery, see [operating command
 ### 4. Verify
 
 ```bash
-npm run build
+pnpm run build
 node bin/harnix.js scan .
 ```
 
@@ -161,9 +161,9 @@ Keep temporary verification artifacts and fixtures under the gitignored `./tmp` 
 ### Running tests
 
 ```bash
-npm test              # Run all tests once
-npx vitest            # Run in watch mode
-npx vitest run        # Run once (same as npm test)
+pnpm test              # Run all tests once
+pnpm dlx vitest            # Run in watch mode
+pnpm dlx vitest run        # Run once (same as pnpm test)
 ```
 
 ### Test structure
@@ -218,9 +218,9 @@ describe("your-check-id", () => {
 ```bash
 git clone https://github.com/anakotai/harnix.git
 cd harnix
-npm install
-npm run build    # Compile TypeScript
-npm test         # Run tests
+pnpm install
+pnpm run build    # Compile TypeScript
+pnpm test         # Run tests
 ```
 
 ## Releases
@@ -231,7 +231,7 @@ Harnix releases are tag-driven and publish to the public npm registry.
 
 - In npm package settings for `harnix`, add a Trusted Publisher for GitHub Actions.
 - Configure it with GitHub owner `anakotai`, repository `harnix`, workflow filename `release.yml`, and no environment unless release protection later requires one.
-- The release workflow upgrades `npm` before publishing because npm Trusted Publishing requires a newer npm CLI than the GitHub runner default.
+- The release workflow installs the pinned pnpm version and uses pnpm Trusted Publishing with provenance.
 
 ### Release flow
 

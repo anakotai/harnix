@@ -31,10 +31,10 @@ V1 requires the target's own readable JSON-object package.json. Setup applies wi
 
 Recognized examples:
 
-- Setup: `npm install`, `npm i`, `npm ci`, `pnpm install`, `pnpm i`, `yarn`, `yarn install`, `bun install`, `bun i`; package operands and global installs are excluded.
-- Verification: `npm test` or `npm run test`; pnpm/yarn/Bun allow `test` with or without `run`.
-- Build: `npm run build`; pnpm/yarn/Bun allow `build` with or without `run`.
-- Run: `npm start`, `npm run start`, `npm run dev`; pnpm/yarn/Bun allow `start`/`dev` with or without `run`.
+- Setup: `pnpm install`, `npm i`, `pnpm install --frozen-lockfile`, `pnpm install`, `pnpm i`, `yarn`, `yarn install`, `bun install`, `bun i`; package operands and global installs are excluded.
+- Verification: `pnpm test` or `pnpm run test`; pnpm/yarn/Bun allow `test` with or without `run`.
+- Build: `pnpm run build`; pnpm/yarn/Bun allow `build` with or without `run`.
+- Run: `npm start`, `pnpm run start`, `pnpm run dev`; pnpm/yarn/Bun allow `start`/`dev` with or without `run`.
 
 An optional `$` prompt, simple trailing flags, script arguments after `--`, and `&&`, `||`, or `;` segments are supported. Angle/brace/environment-variable/TODO/CHANGEME/ellipsis placeholders are ignored. This is bounded pattern recognition, not general shell or Markdown parsing; working-directory changes, wrappers, custom scripts, and direct tool invocations are not understood. Commands are never executed, fetched, or validated against script definitions, and their presence does not prove they work.
 

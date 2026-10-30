@@ -27,7 +27,7 @@ Harnix detects these gaps and tells you exactly what to fix, prioritized by impa
 Run a scan with a single command — no installation required:
 
 ```bash
-npx harnix scan .
+pnpm dlx harnix scan .
 ```
 
 Sample output:
@@ -57,16 +57,16 @@ Reports are also written as Markdown and self-contained HTML files to the `harni
 
 ## Installation
 
-### npx (no install)
+### pnpm dlx (no install)
 
 ```bash
-npx harnix scan .
+pnpm dlx harnix scan .
 ```
 
 ### Global install
 
 ```bash
-npm install -g harnix
+pnpm install -g harnix
 harnix scan .
 ```
 
@@ -75,8 +75,8 @@ harnix scan .
 ```bash
 git clone https://github.com/anakotai/harnix.git
 cd harnix
-npm install
-npm run build
+pnpm install
+pnpm run build
 node bin/harnix.js scan /path/to/repo
 ```
 
@@ -84,7 +84,7 @@ node bin/harnix.js scan /path/to/repo
 
 Harnix is distributed via the public npm registry as `harnix`.
 
-- **npm registry** is the installation source (`npx harnix`, `npm install -g harnix`)
+- **npm registry** is the installation source (`pnpm dlx harnix`, `pnpm install -g harnix`)
 - **GitHub Releases** mirror tagged versions and release notes
 - **GitHub Packages** is not used for Harnix distribution
 

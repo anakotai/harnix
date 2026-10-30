@@ -35,7 +35,7 @@ To add a new check:
 1. Create a directory under `checks/` named with a kebab-case ID (e.g., `checks/my-check/`).
 2. Add a `meta.yaml` following the existing checks as a template.
 3. Implement your check logic in `check.ts`. The function receives `rootPath`, `files` (array of relative paths), `repoType`, and `gitInfo` in the scan context.
-4. Rebuild with `npm run build` and run `harnix scan .` — Harnix auto-discovers the new check from the `checks/` directory.
+4. Rebuild with `pnpm run build` and run `harnix scan .` — Harnix auto-discovers the new check from the `checks/` directory.
 5. Add tests in `tests/checks/my-check.test.ts` using Vitest and the test fixtures under `tests/fixtures/`.
 
 See the [Contributing](/contributing/) page for code style and testing guidelines.

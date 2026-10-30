@@ -14,11 +14,5 @@
     "astro": "^7.3.3",
     "sharp": "^0.35.5"
   },
-  "overrides": {
-    "svgo": "^4.0.2",
-    "postcss-nested": "^8.0.1",
-    "vite": "8.2.4",
-    "undici": "8.12.2",
-    "zod": "4.6.6"
-  }
+  "packageManager": "pnpm@12.16.1"
 }
