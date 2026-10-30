@@ -47,8 +47,8 @@ The resolution rules for each setting are:
 | Setting | Precedence |
 |---------|-----------|
 | `output` | CLI `--output` overrides config `output`. If neither is set, reports are written to the `harnix/` directory under the scanned root. |
-| `skip` | CLI `--skip` overrides config `skip`. If `--only` is present (from CLI or config), `skip` is ignored entirely. |
-| `only` | CLI `--only` overrides config `only`. When `only` is active from any source, `skip` is cleared. |
+| `skip` | CLI `--skip` overrides config `skip` and still applies when `only` comes from config. CLI `--only` ignores all skip sources. |
+| `only` | CLI `--only` overrides config `only` and ignores config `skip`. Config `only` can be narrowed by CLI `--skip`. |
 | `type` | CLI `--type` overrides config `type`. If neither is set, Harnix auto-detects the repository type by scanning for software signals such as `package.json`, `Cargo.toml`, or `go.mod`. |
 | `depth` | CLI `--depth` overrides config `depth`. If neither is set, recursive scan depth is unlimited. |
 

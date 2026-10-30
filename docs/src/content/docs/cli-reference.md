@@ -99,7 +99,7 @@ Harnix uses the following exit codes to indicate scan outcomes:
 - `0` — scan completed successfully, regardless of scores
 - `1` — an error occurred (invalid arguments, missing directory, malformed config file, or a requested report artifact that could not be written)
 
-The exit code does not reflect the scan score. A repository scoring `0%` still exits with code `0` because the scan itself succeeded. This design makes Harnix safe to use in CI pipelines where you want to capture results without failing the build on low scores.
+The exit code does not reflect the scan score. A repository scoring `0%` still exits with code `0` because the scan itself succeeded. Child scan failures are surfaced in reports and omitted from rollup; they do not by themselves require a non-zero exit.
 
 ## Help
 

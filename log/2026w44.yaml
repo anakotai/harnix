@@ -5,3 +5,10 @@
   status: done
   repo: harnix
   ref: "https://github.com/anakotai/harnix/issues/36"
+
+- date: 2026-10-31 01:04
+  task: Simplify onboarding and domain documentation
+  who: Emi
+  status: done
+  repo: harnix
+  ref: "#37"

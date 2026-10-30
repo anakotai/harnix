@@ -1,117 +1,91 @@
 # Harnix
 
-Local, offline toolkit that guides project owners and AI agents toward foundational operating context for effective agent-assisted work. Harnix discovers and runs applicable checks against a repository path and produces a heuristic signal-coverage report with prioritized recommendations. It does not remediate, host, or perform general compliance analysis, and it does not claim that a high score predicts agent success.
+Harnix is a local, offline assessment toolkit for project owners and AI coding agents. It measures discoverable operating-context signals and recommends improvements; it does not apply fixes or certify agent success. Extensions, HaaS integration, and CI gating are secondary concerns.
 
 ## Language
 
-**Harnix**:
-A local, offline assessment toolkit: given a repository path, it measures whether foundational operating-context guidelines and structures are present, and points project owners and agents at what to add or fix next. Running an assessment does not use the network.
-_Avoid_: remediator, hosted service, compliance platform, general compliance product, agent-success predictor
+**Harness readiness**:
+Coverage of discoverable operating context that helps agents and humans find how to work in a repository. It does not establish the context's correctness, currency, or effectiveness.
+_Avoid_: compliance score, security posture, code quality score, agent-success prediction
 
 **Local-only assessment**:
-The scan path reads the filesystem and writes local reports only — no network calls, telemetry, or remote APIs during assessment. Installers and external docs may use the network; they are not part of assessment.
-_Avoid_: cloud scoring, phone-home telemetry, online knowledge fetch as part of `scan`
-
-**Harness readiness**:
-How prepared a repository is for productive AI-assisted development and human collaboration, measured only by *discoverable operating context* — whether foundational guidelines and structures are present for an agent or human to find how to work in the repo. Not the quality, truth, currency, or effectiveness of that context in a comprehensive way.
-_Avoid_: compliance score, security posture, code quality score, pipeline health, semantic correctness of docs, “agents will succeed”
+An assessment that reads the filesystem and writes local reports without network calls, telemetry, or remote APIs. Package installation and external documentation sit outside this boundary.
 
 **Signal**:
-A locally observable, machine-detectable fact about the repository (file presence, path patterns, length bands, simple content heuristics) used as evidence that foundational operating context exists. When the same content is reachable via both a real path and an in-repo symlink, the inventory counts it once under a single path identity (not every alias).
-_Avoid_: judgment, LLM analysis, runtime verification, human review finding; requiring every symlink alias path to appear separately in the inventory
+A locally observable fact, such as file presence, path patterns, content length, or simple text markers, used as evidence of operating context.
+_Avoid_: human review finding, runtime verification
 
 **Heuristic**:
-A cheap, deterministic rule over signals (presence, size bands, path patterns, simple text markers). Harnix assessments use heuristics only; they do not require human or LLM reasoning.
-_Avoid_: deep analysis, semantic validation, comprehensive quality assessment
-
-**Score**:
-A heuristic coverage measure over discoverable operating-context signals. A check score is that check’s own 0–1 result; a local score is the tier-weighted mean of evaluated checks; a rollup score averages local/child scores up the tree. Not a prediction of agent success, not an assessment of guidance quality beyond cheap structural proxies. Comparable across runs only for the same Harnix version and the same effective check set (skip/only, repo type, depth, and catalog). Catalog or heuristic changes may move numbers without repo changes.
-_Avoid_: quality grade, agent productivity metric, compliance rating, success probability; multi-year score continuity; comparing scores across different Harnix versions without caveat
+A deterministic rule that evaluates signals without human or LLM reasoning.
+_Avoid_: semantic validation, comprehensive quality assessment
 
 **Assessment**:
-Harnix's primary job: measure readiness signals via heuristics, diagnose gaps, and recommend fixes so a project owner knows the direction of work. Does not apply fixes, and does not comprehensively assess fidelity or runtime quality of the context found.
-_Avoid_: remediation, enforcement platform, continuous monitoring, human or LLM reasoning as part of assessment
+Evaluation of a scan target's readiness signals, producing scores, findings, and recommendations.
+_Avoid_: remediation, enforcement, continuous monitoring
 
 **Check**:
-A discrete, auto-discovered readiness evaluation unit (identity + scoring logic) that contributes a score and recommendations to a report by applying heuristics to signals.
-_Avoid_: rule, plugin (unless speaking about extensibility), lint, policy
+A discrete readiness evaluation that applies heuristics to signals and returns a score, findings, and recommendations.
+_Avoid_: lint, policy; plugin when referring to the evaluation itself
 
 **Built-in check**:
-A check in Harnix’s opinionated core catalog. Admitted only if it (1) uses local heuristics only, (2) targets discoverable operating context or structural provisions that make that context usable, (3) yields a clear recommendation for a project owner or agent, and (4) is honestly scoped by repo type. Not a general static-analysis, security, or quality linter.
-_Avoid_: CVE scanner, style linter, pipeline health monitor, test-effectiveness judge, runtime verifier, org-specific policy pack as core identity
+A check in Harnix's opinionated core catalog, admitted only when it uses local heuristics, targets discoverable operating context or supporting structure, yields actionable recommendations, and has honest repo-type applicability.
+_Avoid_: general static analysis, security scanning, runtime verification
 
 **Custom check**:
-A check added via the extension path (check directory plugin) for local or organizational needs. Secondary to the product; not required for Harnix to fulfill its primary job.
-_Avoid_: treating custom checks as the core product; conflating with built-in catalog
-
-**Recommendation**:
-A prioritized, actionable suggestion derived from a check result that tells a project owner or agent what foundational guidance or structure to add or improve next. Not an automated change applied by Harnix. Ordering: higher tier first, then lower check score within the same tier. In recursive scans, recommendations stay attributed to their scan target rather than a single unattributed flat list.
-_Avoid_: fix, patch, remediation, autofix; ordering only by score while ignoring tier; mixing child tips into the parent without path attribution
-
-**Project owner**:
-A primary audience for Harnix reports — the human responsible for making the repository workable for agents and collaborators. Consumes scores and recommendations to decide what foundational context to add or fix.
-_Avoid_: end user (ambiguous), developer (too narrow); treating the owner as the only primary audience
-
-**Agent (report consumer)**:
-A primary audience alongside the project owner — an AI coding agent that may read the report or recommendations to see which operating-context gaps exist and what to work on next. Does not change Harnix’s non-remediator role: agents may act on recommendations outside Harnix; Harnix itself still only assesses.
-_Avoid_: treating agents as the sole audience; implying Harnix applies fixes for agents; agent-success certification via score
-
-**Scan target**:
-A repository path Harnix assesses as one unit: its own file list, repo type, applicable checks, and local score. The path passed to `scan` is a scan target; so is every non-noise subdirectory in the recursive walk (subject to `--depth`).
-_Avoid_: treating the whole monorepo as a single flat file list without per-path assessment; limiting children to only declared git submodules or workspace packages; scanning noise paths
-
-**Child scan target**:
-A direct subdirectory of a scan target that is included in the recursive assessment walk. Every project subdirectory is a potential child unless cut off by `--depth` or treated as **noise** (not assessed). Discovery is not limited to `.gitmodules` or workspace manifests. The same rule applies at every level: each child may itself have child scan targets.
-_Avoid_: “only submodules”; “only npm workspaces”; treating only gitlinks as children; assessing dependency trees, VCS metadata, or other noise as readiness
-
-**Noise**:
-Paths that are never scan targets and never enter rollup — including VCS metadata (e.g. `.git`), dependency/install trees (e.g. `node_modules`), other non-project junk, dedicated assessment output and identifiable generated reports, and anything excluded by inherited or nested `.gitignore` rules within the scan root. Built-in exclusions win over negation; ignored parents cannot be rescued through children or aliases. Harnix does not assess the “state of noise.”
-_Avoid_: treating ignored or generated dependency trees as children; scoring `node_modules` / `.git`
-
-**Local score**:
-The heuristic signal-coverage score for one scan target from that path’s own evaluated checks only: a **tier-weighted mean** of those check scores (fixed shipped tier weights). Available as the granular assessment when that path has evaluated checks; otherwise unavailable, with no score band. Zero is an evaluated score, not a synonym for unavailable. Inapplicable and skipped checks are excluded from the mean.
-_Avoid_: using “overall” to mean only the local score when children exist; unweighted mean of checks; user-defined tier weights
-
-**Tier**:
-A fixed importance class on a check (`critical`, `important`, `nice-to-have`) that sets its weight in the local score. Expresses the toolkit’s opinionated priority among signal classes, not end-user preference.
-_Avoid_: severity (security), priority (issue tracker), user-configurable weight
-
-**Check status**:
-A coverage-strength label derived from a check score (`pass` / `partial` / `fail` via fixed percentage thresholds). `not-assessed` means no applicable supported categories could be established; it displays as N/A and carries no score weight or missing-evidence recommendations. Indicates how completely that check’s expected signals were found by heuristics — not certification that the harness works or that agents will succeed.
-_Avoid_: certification, quality pass, CI gate (unless an explicit fail-under threshold is added later), agent-ready stamp
-
-**Score band**:
-A coverage-strength label for an aggregate score (Poor / Needs Improvement / Good / Excellent via fixed ranges). Same non-claim as check status: strength of signal coverage, not operational readiness certification.
-_Avoid_: readiness certification, letter grade of team maturity, prediction of agent productivity
-
-**Rollup score**:
-At a scan target that has scored **direct** children, the overall stance for that path: an equal-weight average of that path’s **local score** and each **successfully scored direct (1st) child’s** score only. Each child uses its own rollup when it has children, otherwise its local score — the same recursive rule at every level. Non-direct descendants are not averaged again at the parent; they influence the parent only through the direct child’s rollup. Children that fail to produce a score are omitted from the mean and surfaced as errors. Paths not scanned (e.g. beyond `--depth`) are not members of the mean. Child importance/weight is not assessed yet. Unavailable when neither local nor direct children have scores; an unscored local target can still have a rollup from scored children. A leaf with an available local score has the same rollup. Not worst-child-dominates. Parent and child may use different applicable check sets (different repo types); that does not block averaging their scores.
-_Avoid_: min/weakest-link as the overall monorepo score; flat mean of the entire subtree; size-weighted rollup (not yet defined); counting failed children as zero; averaging only workspace/submodule children when the walk includes all subdirectories; applying check tiers inside the parent/child rollup average
-
-**Repo type**:
-An applicability classification for a scan target (`software` or `non-software`) that selects which checks are meaningful to run. Not a score, not a quality judgment, not a product split. Detection is best-effort; explicit override is first-class.
-_Avoid_: quality label, project category for humans, forcing parent type onto children
+A check supplied through the extension path for local or organizational needs, outside the built-in catalog.
 
 **Check catalog**:
-The shipped set of built-in checks. Opinionated and growable under the built-in admission rules; not an open-ended policy marketplace.
-_Avoid_: “any check anyone wants ships in core”; security product catalog
+The shipped set of built-in checks, governed by the built-in admission criteria.
+_Avoid_: open-ended policy marketplace
+
+**Recommendation**:
+A prioritized suggestion telling a project owner or agent what guidance or structure to add or improve. Recommendations remain attributed to their scan target.
+_Avoid_: patch, autofix
+
+**Project owner**:
+The human responsible for making a repository workable for agents and collaborators; a primary report consumer alongside agents.
+
+**Agent (report consumer)**:
+An AI coding agent that uses findings and recommendations to identify operating-context gaps. Any changes it makes happen outside Harnix's assessment.
+
+**Scan target**:
+A repository path assessed as one unit, with its own file inventory, repo type, applicable checks, and local score. The initial path and every included non-noise subdirectory are scan targets.
+_Avoid_: treating only declared submodules or workspace packages as targets
+
+**Child scan target**:
+A direct subdirectory included in a target's recursive assessment. Descendants contribute to ancestors through these direct parent-child relationships.
+
+**Noise**:
+Paths excluded from inventory and assessment, including VCS metadata, dependencies, build outputs, generated assessment reports, and ignored content.
+
+**Repo type**:
+A per-target applicability classification (`software` or `non-software`) that selects meaningful checks; detection can be explicitly overridden.
+_Avoid_: quality label, inheriting the parent's type automatically
+
+**Score**:
+A heuristic signal-coverage measure, comparable only across the same Harnix version and effective check set, repo types, and depth.
+_Avoid_: quality grade, productivity metric, success probability
+
+**Local score**:
+The tier-weighted mean of one target's evaluated check scores, excluding skipped, inapplicable, and not-assessed checks. It is unavailable when no checks were evaluated; zero is an evaluated score.
+_Avoid_: overall score when children contribute
+
+**Tier**:
+A fixed check importance class (`critical`, `important`, `nice-to-have`) that determines local-score weight and recommendation priority.
+_Avoid_: security severity, user-configurable weight
+
+**Check status**:
+A check's signal-coverage label (`pass`, `partial`, `fail`), or `not-assessed` when no applicable supported categories can be established. Not-assessed results carry no score weight or missing-evidence recommendations.
+_Avoid_: certification, CI gate
+
+**Score band**:
+An aggregate coverage label: Poor, Needs Improvement, Good, or Excellent.
+_Avoid_: readiness certification, team maturity grade
+
+**Rollup score**:
+The equal-weight mean of a target's available local score and each successfully scored direct child's effective score (its rollup, otherwise local). Unavailable scores and failed or unscanned children are omitted; with no available scores the rollup is unavailable.
+_Avoid_: weakest-link score, flat subtree mean, size-weighted mean, failed children counted as zero
 
 **Report**:
-The presentation of one assessment (for a scan target and, when present, its child tree): local and rollup scores as applicable, coverage-strength statuses and bands, per-check results, prioritized recommendations, and surfaced child-scan errors. Console, Markdown, HTML, and opt-in versioned JSON are views of the same assessment, not separate products. Durable views should be actionable without re-running the CLI, should record enough run identity (at least Harnix version) for version-scoped comparison, and should not imply certification of agent success.
-_Avoid_: treating formats as different products; audit certificate; agent-success certificate; timeless scores without version context
-
-**JSON report**:
-An opt-in machine-readable report for agents and tooling, requested with `--json-report` and written beside the Markdown and HTML artifacts. It carries a `schemaVersion` for the report contract, the Harnix version, one shared ISO 8601 UTC run instant, effective run options, per-target type provenance, full check results, structured check-execution errors, and the existing child tree. It may be additive within a major schema version; consumers must ignore unknown fields and tolerate unknown extensible state values. A JSON report is a representation of the assessment, not a new scoring model.
-_Avoid_: separate scoring contract; stability without a schema version; treating unknown states as success or zero; claiming visibility into uninstrumented discovery failures
-
-**Scan configuration**:
-Effective options for a scan run (skip, only, type, depth, output). CLI flags override `.harnix.yaml` for the same key. CLI `--only` ignores all skip sources for that run. When `only` comes only from config, CLI `--skip` still applies. Child scan targets inherit the same effective skip/only/depth policy from the invocation; they do not load a separate child `.harnix.yaml` by default. Repo type is detected per scan target unless the invocation set an explicit type on the root only (root override does not force children). Output-format opt-ins such as `--json-report` are invocation choices, not assessment configuration.
-_Avoid_: silent inversion of CLI vs config precedence; per-child config files as an assumed default; treating report formats as scoring configuration
-
-**Process exit status**:
-The CLI process exit code is about run success (could the assessment complete?), not readiness certification. A completed scan with low signal-coverage scores still exits 0 by default. Child scan failures are surfaced in the report and omitted from rollup; they do not by themselves require a non-zero exit. Non-zero exit is for unusable invocations (bad args, unreadable root path, fatal engine errors) and for requested report artifacts that cannot be written. Optional fail-under thresholds remain a secondary/future concern.
-_Avoid_: treating exit 0 as “agents will succeed”; treating any partial score as a CI failure without an explicit threshold feature
-
-**Secondary concerns**:
-Plugin-style check extensibility, Anakot HaaS integration, subrepo importance weighting for rollup, and optional CI fail-under thresholds support or extend Harnix but do not redefine its primary job as an assessment toolkit for project owners and agents. Default success exit is not a readiness certification. Network use outside assessment (package install, docs sites, HaaS) is out of band. CI is a secondary consumer, not a dual-primary audience with owners and agents.
-_Avoid_: treating the check framework, HaaS, or CI gating as the product identity
+A presentation of an assessment and its child tree, including scores, findings, recommendations, errors, and run identity for version-scoped comparison. Console, Markdown, HTML, and opt-in versioned JSON are views of the same assessment.
+_Avoid_: audit certificate, separate scoring models per format
