@@ -1,12 +1,12 @@
 ---
 title: Installation
-description: Install and run Harnix using npm, npx, or from source.
+description: Install and run Harnix using pnpm or from source.
 ---
 
 ## Requirements
 
 - **Node.js 20 or newer** — Harnix uses modern JavaScript features (`import.meta.dirname`) that require Node.js 20.11.0 or later
-- **npm 10 or newer** — ships with Node.js 20 by default
+- **pnpm 12.16.1** — the package manager pinned by this repository
 
 ## Zero-install usage
 
@@ -31,6 +31,7 @@ harnix scan .
 git clone https://github.com/anakotai/harnix.git
 cd harnix
 pnpm install
+pnpm run build
 node bin/harnix.js scan .
 ```
 
@@ -57,10 +58,10 @@ Harnix runs on any operating system that supports Node.js 20 or later, including
 When installed globally, upgrade to the latest version with:
 
 ```bash
-npm update --global harnix
+pnpm update --global harnix
 ```
 
-When using `npx`, you always get the latest published version by default. To pin a specific version:
+Use `pnpm dlx harnix@latest scan .` to request the latest published version explicitly. To pin a specific version:
 
 ```bash
 pnpm dlx harnix@0.14.0 scan .

@@ -94,7 +94,7 @@ async function loadCheckFunction(dirName: string): Promise<CheckFunction> {
     const canLoadTypescript = process.env.VITEST === "true";
     if (!canLoadTypescript) {
       throw new Error(
-        `Compiled check not found for "${dirName}". Run "npm run build" first.`
+        `Compiled check not found for "${dirName}". Run "pnpm run build" first.`
       );
     }
 
@@ -103,7 +103,7 @@ async function loadCheckFunction(dirName: string): Promise<CheckFunction> {
       checkPath = sourcePath;
     } catch {
       throw new Error(
-        `Check not found for "${dirName}". Run "npm run build" first.`
+        `Check not found for "${dirName}". Run "pnpm run build" first.`
       );
     }
   }
