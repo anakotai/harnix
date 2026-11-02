@@ -223,6 +223,8 @@ pnpm run build    # Compile TypeScript
 pnpm test         # Run tests
 ```
 
+`pnpm-workspace.yaml` must keep `pmOnFail: ignore`, and `pnpm-lock.yaml` must stay a single YAML document. When `packageManager` pins pnpm 12 or newer, pnpm writes a leading "boot document" (pnpm and its platform binaries) as a first YAML document in `pnpm-lock.yaml`, and GitHub's dependency graph and Dependabot read only the first document, so the graph collapses to `pnpm` itself and Dependabot security alerts go dark for every real dependency. See the [pnpm lockfile docs](https://github.com/pnpm/pnpm/blob/main/pnpm/docs/lockfile.md).
+
 ## Releases
 
 Harnix releases are tag-driven and publish to the public npm registry.

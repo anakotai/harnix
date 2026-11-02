@@ -1,0 +1,5 @@
+- date: 2026-11-02 19:08
+  task: Keep pnpm lockfile single-document for the GitHub dependency graph
+  who: Emi
+  status: done
+  repo: harnix
