@@ -68,7 +68,7 @@ function printScanHelp(): void {
   console.log("  path             Path to repository (default: current directory)");
   console.log("");
   console.log("Options:");
-  console.log("  --verbose        Show per-check rationale in console output");
+  console.log("  --verbose        Show per-check rationale and details, including recursive target details, in console output");
   console.log("  --output <path>  Write reports to a custom output directory");
   console.log("  --skip <id>      Skip check IDs (comma-separated or repeated)");
   console.log("  --only <id>      Run only check IDs (comma-separated or repeated)");

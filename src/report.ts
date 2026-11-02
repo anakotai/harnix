@@ -1232,17 +1232,29 @@ export function printConsoleReport(
   console.log("");
 
   for (const check of checks) {
-    const symbol = colorSymbolForStatus(check.status);
-    const name = bold(check.name.padEnd(18, " "));
-    const percent = checkScore(check).padStart(4, " ");
-    console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
+    printConsoleCheck(check, "", verbose);
+  }
 
-    if (verbose) {
-      const why =
-        typeof check.whyThisMatters === "string" && check.whyThisMatters.trim().length > 0
-          ? check.whyThisMatters.trim()
-          : "This check affects how reliably humans and agents can operate in the repository.";
-      console.log(`    Why this matters: ${why}`);
+  if (verbose && recursiveScans.length > 0) {
+    const printable: Array<{ path: string; findings: CheckResult[] }> = [];
+    for (const entry of recursiveScans) {
+      if ("error" in entry) continue;
+      printable.push({ path: entry.path, findings: entry.findings });
+    }
+    if (printable.length > 0) {
+      console.log("");
+      console.log(bold("Recursive target details:"));
+      const visualTargets = printable.slice(0, 20);
+      for (const entry of visualTargets) {
+        for (const check of entry.findings) {
+          if (check.status !== "pass" && check.status !== "not-assessed") {
+            printConsoleCheck(check, `[${entry.path}] `, verbose, 60);
+          }
+        }
+      }
+      if (printable.length > visualTargets.length) {
+        console.log(`    ${printable.length - visualTargets.length} more recursive target(s) omitted; see the Markdown/HTML report.`);
+      }
     }
   }
 
@@ -1253,5 +1265,28 @@ export function printConsoleReport(
     recommendations.forEach((item, index) => {
       console.log(`${index + 1}. ${formatRecommendationLine(item)}`);
     });
+  }
+}
+
+function printConsoleCheck(check: CheckResult, prefix = "", verbose = false, detailLineLimit = Number.POSITIVE_INFINITY): void {
+  const symbol = colorSymbolForStatus(check.status);
+  const name = bold(`${prefix}${check.name}`.padEnd(18 + prefix.length, " "));
+  const percent = checkScore(check).padStart(4, " ");
+  console.log(`${symbol} ${name} ${percent}  ${check.summary}`);
+
+  if (verbose) {
+    const why =
+      typeof check.whyThisMatters === "string" && check.whyThisMatters.trim().length > 0
+        ? check.whyThisMatters.trim()
+        : "This check affects how reliably humans and agents can operate in the repository.";
+    console.log(`    Why this matters: ${why}`);
+    const lines = check.details.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    const visible = lines.slice(0, detailLineLimit);
+    for (const line of visible) {
+      console.log(`    ${line}`);
+    }
+    if (lines.length > visible.length) {
+      console.log(`    ... ${lines.length - visible.length} more detail line(s) omitted; see the Markdown/HTML report.`);
+    }
   }
 }

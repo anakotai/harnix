@@ -31,7 +31,7 @@ For root local 80%, child rollup 40%, and child local 60%, root rollup is 60%. C
 
 Every non-noise subdirectory is a scan target by default, including ordinary source/docs directories. Root-oriented checks can score these paths low and reduce rollup. This coverage expansion is deliberate; compare assessments using the same Harnix version, depth, and effective check set. `--depth 0` assesses only the root. Markdown/HTML retain full child findings, recommendations, references, and path-attributed errors; report size grows with target count.
 
-The `operating-commands` check, introduced in 0.22.0, equally weights only applicable supported command categories. Unsupported ecosystems and Node targets without applicable categories are not assessed. Existing check scores are unchanged. Compare scores only for the same Harnix version and effective check set; catalog and heuristic changes may change aggregates without repository changes.
+The `operating-commands` check, introduced in 0.22.0, equally weights only applicable supported command categories. Unsupported ecosystems and Node targets without applicable categories are not assessed. The `guidance-links` check, introduced in 0.24.0, scores the ratio of unique in-scope local link destinations it can verify: every destination present and readable scores 1.0, each definitely missing or unreadable destination lowers the ratio, and destinations outside that scope are disclosed but excluded. Targets without local guidance, or with no in-scope destinations, are not assessed. Existing check scores are unchanged. Compare scores only for the same Harnix version and effective check set; catalog and heuristic changes may change aggregates without repository changes.
 
 ## Qualitative bands
 

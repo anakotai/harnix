@@ -16,7 +16,7 @@ harnix scan [path]
 
 ### `--verbose`
 
-Include inline rationale per check in terminal output.
+Include inline rationale and per-check details, including recursive target details, in terminal output.
 
 ```bash
 harnix scan . --verbose

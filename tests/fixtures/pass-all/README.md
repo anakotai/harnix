@@ -4,4 +4,4 @@ This is an example project used for testing purposes. It demonstrates a well-str
 
 ## Getting Started
 
-Run `npm install` to install dependencies, then `npm test` to run the test suite. See the docs/ directory for detailed documentation.
+Run `npm install` to install dependencies, then `npm test` to run the test suite. See the [documentation guide](docs/guide.md) for detailed documentation.

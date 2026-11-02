@@ -1,0 +1,10 @@
+id: guidance-links
+name: Guidance links
+category: documentation
+tier: important
+description: Detects broken local file references in root operating guidance and one hop of linked Markdown pages.
+tags:
+  - guidance
+  - links
+  - documentation
+applicableTo: all

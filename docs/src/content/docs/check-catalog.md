@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 11 built-in checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 12 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 11 built-in checks grouped into 6 categories. Each assessed check produces a score between 0 and 1.0, weighted by its tier during overall scoring. Not-assessed checks appear as N/A and carry no weight. The `operating-commands` entry was introduced in 0.22.0; compare scores only within the same Harnix version and effective check set.
+Harnix ships with 12 built-in checks grouped into 6 categories. Each assessed check produces a score between 0 and 1.0, weighted by its tier during overall scoring. Not-assessed checks appear as N/A and carry no weight. The `operating-commands` entry was introduced in 0.22.0 and the `guidance-links` entry in 0.24.0; compare scores only within the same Harnix version and effective check set.
 
 ## Active checks
 
@@ -15,6 +15,7 @@ Harnix ships with 11 built-in checks grouped into 6 categories. Each assessed ch
 | [CI pipeline](#ci-pipeline) | `ci-pipeline` | <span class="check-badge check-badge--category">quality-gates</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Root README](#root-readme) | `root-readme` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">critical</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Documentation](#documentation) | `documentation` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Guidance links](#guidance-links) | `guidance-links` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Ubiquitous language](#ubiquitous-language) | `ubiquitous-language` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Design guidance](#design-guidance) | `design-md` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">nice-to-have</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
@@ -170,6 +171,37 @@ Checks for durable documentation roots such as `docs/`, `specs/`, and `prds/`. T
 | Documentation roots exist but contain no supported documentation files | 0.2 |
 | Documentation roots exist but only placeholder docs were detected | 0.4 |
 | At least one substantive doc exists under `docs/`, `specs/`, or `prds/` | 1.0 |
+
+### Guidance links
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">important</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+Detects broken local file references in common operating guidance. Guidance that links agents and humans to paths that do not exist stalls onboarding; this check reports each broken reference with its source file, line, original destination, and resolved path so it can be repaired or removed.
+
+This is local reference integrity only. It does not validate external URLs, heading anchors, semantic correctness, or freshness, and it never executes commands or accesses the network.
+
+#### What it checks
+
+- Relative inline and reference-style Markdown links in root `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.txt`, and `CONTRIBUTING.md` (case-insensitive basenames), plus one hop of linked Markdown pages (`.md` or `.markdown`)
+- Destination existence and readability for any relative local file destination (extension-agnostic, including directory destinations), resolved relative to the referring file with URL-encoded paths, optional fragments, and balanced parentheses
+- Links inside fenced/inline code and HTML comments are ignored; four-space/tab indented code blocks are treated as prose, a documented approximation
+- Excluded from assessment (disclosed, never reported as missing): external URLs, absolute paths, harness imports (`@…`, `~…`), query strings, Windows-style separators, malformed encodings, fragment-only links, images, noise paths, paths outside the scan root (including symlink escapes), and present-but-unscanned paths (ignored, generated, or symlink-aliased files)
+
+#### Scoring
+
+| Condition | Score |
+|---|---|
+| No in-scope local destinations (or no guidance sources) | not assessed |
+| Proportion of unique in-scope destinations verified | `verified / (verified + broken)` |
+| Every in-scope destination present and readable | 1.0 |
+
+Status uses the standard pass/partial/fail thresholds. Each source occurrence is reported even when the score deduplicates destinations, capped at fifty findings with an omission note. Directory links verify when their subtree holds inventoried files; non-regular destinations (FIFOs, sockets) are disclosed and never opened. Traversal follows at most five unique linked Markdown files per target, sorted deterministically; truncation is disclosed. Sources come from the scan inventory, so symlinked guidance is not scanned. No `package.json` or other manifest is required; the check applies to software and non-software targets alike.
+
+Findings carry source file, line number, original destination, resolved relative path, and reason; they appear in the console (verbose), Markdown, HTML, and JSON reports with deterministic ordering. See the [full pattern and traversal contract](https://github.com/anakotai/harnix/blob/main/docs/guidance-links.md).
 
 ### Ubiquitous language
 

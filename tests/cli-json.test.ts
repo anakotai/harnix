@@ -59,9 +59,21 @@ describe("CLI --json-report integration", () => {
     const report = JSON.parse(await fs.readFile(jsonPath, "utf8"));
     expect(jsonReportSchema.safeParse(report).success).toBe(true);
     expect(report.assessment.localScore).toBe(expected.localScore);
-    expect(report.assessment.evaluatedCheckIds).toEqual(
-      [...expected.checks.map((check) => check.id)].sort(),
-    );
+    // Explicit list, so a regression that wrongly includes or excludes an ID fails here.
+    expect(report.assessment.evaluatedCheckIds).toEqual([
+      "agent-skills",
+      "agents-md",
+      "ci-pipeline",
+      "design-md",
+      "documentation",
+      "guidance-links",
+      "operating-commands",
+      "repo-structure",
+      "root-readme",
+      "source-of-truth",
+      "testing-provision",
+      "ubiquitous-language",
+    ]);
     expect(process.exitCode).toBeUndefined();
   });
 

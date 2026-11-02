@@ -28,11 +28,11 @@ describe("tierWeight", () => {
 });
 
 describe("scanRepository", () => {
-  it("discovers and runs all 11 checks on a fixture repo", async () => {
+  it("discovers and runs all 12 checks on a fixture repo", async () => {
     const result = await scanRepository(path.join(FIXTURES, "pass-all"), {
       recursive: false,
     });
-    expect(result.checks.length).toBe(11);
+    expect(result.checks.length).toBe(12);
     expect(result.overallScore).toBeGreaterThan(0);
     expect(result.overallScore).toBeLessThanOrEqual(1);
     expect(result.repoType).toBe("software");
@@ -54,7 +54,7 @@ describe("scanRepository", () => {
       recursive: false,
     });
     expect(result.checks.find((c) => c.id === "agents-md")).toBeUndefined();
-    expect(result.checks.length).toBe(10);
+    expect(result.checks.length).toBe(11);
   });
 
   it("applies repo type override to root scan only", async () => {

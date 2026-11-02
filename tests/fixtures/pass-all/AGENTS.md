@@ -1,6 +1,6 @@
 # Agent Guidance
 
-This repository uses AI coding agents. Follow these guidelines when contributing:
+This repository uses AI coding agents. Follow these guidelines when contributing; see the [documentation guide](docs/guide.md) for details:
 - Read the codebase before making changes
 - Use TypeScript for all source files
 - Run tests before committing
