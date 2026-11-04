@@ -1,5 +1,6 @@
-- date: 2026-11-02 19:08
-  task: Keep pnpm lockfile single-document for the GitHub dependency graph
+- date: 2026-11-04 14:55
+  task: Fix guidance-links greptile review findings
   who: Emi
   status: done
   repo: harnix
+  ref: "29c94e6"

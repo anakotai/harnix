@@ -1247,7 +1247,11 @@ export function printConsoleReport(
       const visualTargets = printable.slice(0, 20);
       for (const entry of visualTargets) {
         for (const check of entry.findings) {
-          if (check.status !== "pass" && check.status !== "not-assessed") {
+          const deviates =
+            check.status === "fail" ||
+            check.status === "partial" ||
+            (Array.isArray(check.recommendations) && check.recommendations.length > 0);
+          if (deviates) {
             printConsoleCheck(check, `[${entry.path}] `, verbose, 60);
           }
         }

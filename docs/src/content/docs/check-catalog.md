@@ -190,7 +190,7 @@ This is local reference integrity only. It does not validate external URLs, head
 - Relative inline and reference-style Markdown links in root `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.txt`, and `CONTRIBUTING.md` (case-insensitive basenames), plus one hop of linked Markdown pages (`.md` or `.markdown`)
 - Destination existence and readability for any relative local file destination (extension-agnostic, including directory destinations), resolved relative to the referring file with URL-encoded paths, optional fragments, and balanced parentheses
 - Links inside fenced/inline code and HTML comments are ignored; four-space/tab indented code blocks are treated as prose, a documented approximation
-- Excluded from assessment (disclosed, never reported as missing): external URLs, absolute paths, harness imports (`@…`, `~…`), query strings, Windows-style separators, malformed encodings, fragment-only links, images, noise paths, paths outside the scan root (including symlink escapes), and present-but-unscanned paths (ignored, generated, or symlink-aliased files)
+- Excluded from assessment (disclosed, never reported as missing): external URLs, absolute paths, harness imports (`@…`, `~…`), query strings, Windows-style separators, malformed encodings, fragment-only links, images, leading noise directory segments (case-sensitive, mirroring the scanner walk), paths outside the scan root (including symlink escapes), and present-but-unscanned paths (ignored, generated, or symlink-aliased files)
 
 #### Scoring
 

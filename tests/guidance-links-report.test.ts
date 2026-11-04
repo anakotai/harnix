@@ -17,6 +17,11 @@ beforeEach(async () => {
   await write("package.json", '{ "name": "fixture", "private": true }\n');
   await write("AGENTS.md", "Root overview lives in [the root doc](docs/missing-root.md), see also [child guidance](docs/README.md).\n");
   await write("docs/README.md", ["[child detail](missing-child.md)", "[back toward root](../AGENTS.md)"].join("\n") + "\n");
+  // A passing child (3 verified, 1 broken = 0.75) that must still surface its finding.
+  await write("docs2/README.md", ["[a](a.md)", "[b](b.md)", "[c](c.md)", "[broken](absent-child.md)"].join("\n") + "\n");
+  await write("docs2/a.md", "a\n");
+  await write("docs2/b.md", "b\n");
+  await write("docs2/c.md", "c\n");
 });
 
 afterEach(async () => {
@@ -93,5 +98,11 @@ describe("guidance-links across report formats", () => {
     expect(consoleOutput).toContain(rootFinding);
     expect(consoleOutput).toContain("Recursive target details:");
     expect(consoleOutput).toContain(childFinding);
+    // A passing child with a broken reference still surfaces its finding in verbose console.
+    const docs2Child = result.recursiveScans.find((entry) => entry.path === "docs2")!;
+    const docs2Check = docs2Child.result?.checks.find((entry) => entry.id === "guidance-links");
+    expect(docs2Check?.status).toBe("pass");
+    expect(consoleOutput).toContain("[docs2] Guidance links");
+    expect(consoleOutput).toContain("absent-child.md");
   });
 });

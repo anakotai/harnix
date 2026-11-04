@@ -37,7 +37,7 @@ Destinations are classified per occurrence deterministically. Categories below a
 - Fragment-only links (`#anchor`) and GitHub-flavored footnotes (`[^1]`, `[^1]: prose`)
 - Malformed percent-encodings
 - Lexically out-of-root paths (`../` beyond the target) and symlink escapes (the nearest existing ancestor resolves outside the target)
-- Noise paths (the scanner's built-in ignored directory names, such as `node_modules` and `dist`) — the scanner's ignore predicates are not exported, so this is a documented approximation of inventory exclusions
+- Noise paths: a leading directory segment matching the scanner's ignored directory names (such as `node_modules/…` and `dist/…`, case-sensitive, mirroring its walk rules); files and final segments with those names, like a root `build` script or `Build/guide.md`, stay assessable
 - Present-but-unscanned paths: the destination exists but is not in the scan inventory (gitignored, generated, or symlink-aliased content; the scanner does not inventory symlinks), so existence is confirmed while the path stays outside assessment; directory links verify only when their subtree holds inventoried files, and uninhabited directories are disclosed the same way
 - Non-regular destinations such as FIFOs and sockets (`not-a-file`), which are never opened
 - Inaccessible paths where containment or readability could not be established

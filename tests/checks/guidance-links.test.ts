@@ -104,6 +104,32 @@ describe("guidance-links", () => {
     expect(result.summary).toContain("2 of 4 in-scope destination(s) broken");
   });
 
+  it("does not let inline-code comment markers hide later links", async () => {
+    await write(
+      "README.md",
+      lines(
+        "Start a comment with `<!--` inline, then continue to [setup](docs/missing.md).",
+        "[kept](docs/overview.md)",
+      ),
+    );
+    await write("docs/overview.md", "# Overview\n");
+    const result = await run();
+    expect(result.status).toBe("partial");
+    expect(result.details).toContain('resolves to docs/missing.md — destination not found in the scan root');
+    expect(result.summary).toContain("1 of 2 in-scope destination(s) broken");
+  });
+
+  it("assesses inventoried files whose names match ignored directories", async () => {
+    await write("build", "#!/bin/sh\necho build\n");
+    await write("Build/guide.md", "# guide\n");
+    await write("README.md", lines("[script](build)", "[cased](Build/guide.md)"));
+    const result = await run();
+    expect(result.status).toBe("pass");
+    expect(result.score).toBe(1);
+    expect(result.details).not.toContain("noise-excluded");
+    expect(result.summary).toContain("2 in-scope destination(s) verified, none broken");
+  });
+
   it("discloses non-regular destinations instead of opening them", async () => {
     await write("README.md", lines("[pipe](docs/pipe.md)"));
     await fs.mkdir(path.join(root, "docs"), { recursive: true });

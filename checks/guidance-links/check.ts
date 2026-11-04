@@ -6,9 +6,10 @@ import { statusFromScore, type CheckResult, type ScanContext } from "../../src/t
 
 const ROOT_GUIDANCE = /^(AGENTS\.md|CLAUDE\.md|README\.md|README\.txt|CONTRIBUTING\.md)$/i;
 const LINKABLE_SOURCES = /\.(?:md|markdown)$/i;
-// Approximates the scanner's built-in noise directory names (src/scanner.ts IGNORED_DIRS);
-// the scanner's exact ignore predicates are not exported.
-const NOISE = /(^|\/)(?:node_modules|\.git|\.hg|\.svn|\.next|\.venv|venv|__pycache__|\.cache|dist|build)(?:\/|$)/i;
+// Directory segments only, approximating the scanner's IGNORED_DIRS walk rules: case
+// sensitive, and a leading directory segment — a file named `build` or a `Build/` tree
+// is inventoried by the scanner and stays assessable.
+const NOISE = /(?:^|\/)(?:node_modules|\.git|\.hg|\.svn|\.next|\.venv|venv|__pycache__|\.cache|dist|build)\/.+$/;
 /** Occurrences checked per target; at most this many unique linked Markdown files follow root guidance (documented limit). */
 const LIMIT = 5;
 const MAX_FINDINGS = 50;
@@ -83,8 +84,9 @@ function maskHtmlComment(line: string, open: { value: boolean }): string {
 }
 
 /** Mask fenced blocks, inline code, and HTML comments while preserving newlines and offsets.
- * Comments are tracked only on prose lines, so a `<!--` inside a fenced code sample
- * cannot silently disable links in the rest of a file. */
+ * Fence markers are detected on raw lines; inline code spans are masked before comment
+ * scanning, so a `<!--` documented inside backticks cannot open a comment that hides
+ * later links, and a `<!--` inside a fenced code sample cannot disable the rest of a file. */
 function maskExcluded(content: string): string {
   let fence: string | undefined;
   const commentOpen = { value: false };
@@ -98,13 +100,14 @@ function maskExcluded(content: string): string {
         }
         return mask(line);
       }
-      const masked = maskHtmlComment(line, commentOpen);
-      const proseMarker = masked.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-      if (proseMarker) {
-        fence = proseMarker[1];
+      if (marker) {
+        fence = marker[1];
         return mask(line);
       }
-      return masked.replace(/(`+)([^`]*?)\1/g, (span) => mask(span));
+      // Inline code spans are masked before comment scanning, so a `<!--` documented
+      // inside backticks cannot open a comment that hides later links.
+      const codeMasked = line.replace(/(`+)([^`]*?)\1/g, (span) => mask(span));
+      return maskHtmlComment(codeMasked, commentOpen);
     })
     .join("\n");
 }
