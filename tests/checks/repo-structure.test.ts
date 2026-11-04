@@ -30,6 +30,12 @@ function makeCtx(files: string[], gitInfo?: Partial<ScanContext["gitInfo"]>): Sc
 }
 
 describe("repo-structure check", () => {
+  it("awards the partial separation bonus only below a one-half root ratio", async () => {
+    const files = ["README.md", "REVIEW.md", "src/index.ts", "docs/guide.md"];
+    expect((await repoStructureCheck(makeCtx(files))).score).toBeCloseTo(0.5);
+    expect((await repoStructureCheck(makeCtx([...files, "docs/review-rules.md"]))).score).toBeCloseTo(0.65);
+  });
+
   it("passes with src/ directory and good separation", async () => {
     const files = [
       "package.json",

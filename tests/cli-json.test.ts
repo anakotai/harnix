@@ -69,6 +69,7 @@ describe("CLI --json-report integration", () => {
       "guidance-links",
       "operating-commands",
       "repo-structure",
+      "review-md",
       "root-readme",
       "source-of-truth",
       "testing-provision",

@@ -56,7 +56,7 @@ A completed scan exits 0 regardless of scores. Invalid invocations, fatal scan e
 
 ## Checks and scoring
 
-The built-in catalog covers agent guidance and skills, operating commands, guidance link integrity, CI pipelines, root README, durable documentation, ubiquitous language, design guidance, repository structure, source of truth, and testing provisions. See the [check catalog](https://github.com/anakotai/harnix/blob/main/docs/src/content/docs/check-catalog.md) for check IDs, applicability, and heuristics.
+The built-in catalog covers agent guidance and skills, operating commands, guidance link integrity, CI pipelines, root README, durable documentation, ubiquitous language, design guidance, review guidance (`REVIEW.md`), repository structure, source of truth, and testing provisions. See the [check catalog](https://github.com/anakotai/harnix/blob/main/docs/src/content/docs/check-catalog.md) for check IDs, applicability, and heuristics.
 
 Each evaluated check scores from 0 to 1. A target's **local score** is the weighted mean of its checks: critical ×3, important ×2, nice-to-have ×1. Its **rollup score** equally averages its available local score and each scored direct child's effective score. Unavailable scores and failed children are omitted; zero remains a valid score.
 

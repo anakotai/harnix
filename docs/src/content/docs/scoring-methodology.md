@@ -33,6 +33,8 @@ Every non-noise subdirectory is a scan target by default, including ordinary sou
 
 The `operating-commands` check, introduced in 0.22.0, equally weights only applicable supported command categories. Unsupported ecosystems and Node targets without applicable categories are not assessed. The `guidance-links` check, introduced in 0.24.0, scores the ratio of unique in-scope local link destinations it can verify: every destination present and readable scores 1.0, each definitely missing or unreadable destination lowers the ratio, and destinations outside that scope are disclosed but excluded. Targets without local guidance, or with no in-scope destinations, are not assessed. Existing check scores are unchanged. Compare scores only for the same Harnix version and effective check set; catalog and heuristic changes may change aggregates without repository changes.
 
+Version 0.25.0 adds `review-md` for all repo types with weight 1 (`nice-to-have`). It adds a term to both the weighted numerator and denominator when evaluated, so local and rollup scores may shift even without repository changes. Existing checks retain their heuristics. Compare scores only within the same Harnix version, effective check set, repo types, and depth; `--skip review-md` excludes it from the aggregate.
+
 ## Qualitative bands
 
 The overall percentage maps to one of these labels:

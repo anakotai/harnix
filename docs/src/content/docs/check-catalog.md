@@ -1,9 +1,9 @@
 ---
 title: Check Catalog
-description: Complete catalog of all 12 built-in checks — IDs, tiers, scoring, and what each check evaluates.
+description: Complete catalog of all 13 built-in checks — IDs, tiers, scoring, and what each check evaluates.
 ---
 
-Harnix ships with 12 built-in checks grouped into 6 categories. Each assessed check produces a score between 0 and 1.0, weighted by its tier during overall scoring. Not-assessed checks appear as N/A and carry no weight. The `operating-commands` entry was introduced in 0.22.0 and the `guidance-links` entry in 0.24.0; compare scores only within the same Harnix version and effective check set.
+Harnix ships with 13 built-in checks grouped into 6 categories. Each assessed check produces a score between 0 and 1.0, weighted by its tier during overall scoring. Not-assessed checks appear as N/A and carry no weight. The `operating-commands` entry was introduced in 0.22.0, `guidance-links` in 0.24.0, and `review-md` in 0.25.0; compare scores only within the same Harnix version and effective check set.
 
 ## Active checks
 
@@ -18,6 +18,7 @@ Harnix ships with 12 built-in checks grouped into 6 categories. Each assessed ch
 | [Guidance links](#guidance-links) | `guidance-links` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Ubiquitous language](#ubiquitous-language) | `ubiquitous-language` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Design guidance](#design-guidance) | `design-md` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">nice-to-have</span> | <span class="check-badge check-badge--scope">all</span> |
+| [Review guidance](#review-guidance) | `review-md` | <span class="check-badge check-badge--category">documentation</span> | <span class="check-badge check-badge--tier">nice-to-have</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Repo structure](#repo-structure) | `repo-structure` | <span class="check-badge check-badge--category">infrastructure</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
 | [Source of truth](#source-of-truth) | `source-of-truth` | <span class="check-badge check-badge--category">organization</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">all</span> |
 | [Testing provision](#testing-provision) | `testing-provision` | <span class="check-badge check-badge--category">quality</span> | <span class="check-badge check-badge--tier">important</span> | <span class="check-badge check-badge--scope">software</span> |
@@ -242,6 +243,36 @@ This check does not score whether the code still matches the terms.
 
 - [`domain-modeling` skill](https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling) by Matt Pocock
 - [Ubiquitous Language: the Good, the Bad, and the Lessons](https://dev.to/upslide/ubiquitous-language-the-good-the-bad-and-the-lessons-c2p) by Fabien Sinquin
+
+### Review guidance
+
+<div class="check-detail-meta">
+  <span class="check-badge check-badge--category">documentation</span>
+  <span class="check-badge check-badge--tier">nice-to-have</span>
+  <span class="check-badge check-badge--scope">all repositories</span>
+</div>
+
+**ID:** `review-md`
+
+Detects the exact filename `REVIEW.md` at each scan target's root, using its eligible inventory. Ignored files, noise directories, and symlinks are excluded by the scanner. A descendant file contributes only to that descendant's assessment, and depth limits may prevent that assessment entirely. This does not model provider inheritance or file loading.
+
+| Condition | Score |
+|---|---|
+| Missing eligible root `REVIEW.md` | 0 |
+| Discoverable but unreadable (presence credit only) | 0.1 |
+| Empty, heading-only, frontmatter-only, comment-only, include-only, or insufficient local body | 0.4 |
+| Substantive visible local body | 1.0 |
+
+Substance reuses `hasSubstantiveDocContent`: at least 30 characters of normalized non-heading body after frontmatter removal and Markdown marker/whitespace normalization. Hidden HTML comments are stripped locally before evaluation; comments inside fenced code examples remain visible body content. Standalone `@filename` or `@path` lines outside backtick/tilde fenced examples are treated as include references and removed from body evidence. This deliberately broad local matcher does not implement a provider's full include grammar or HTML-block parsing. Include-only files receive 0.4 regardless of include count or path length; mixed files are scored on their local body. Referenced content is never expanded or validated. Keep canonical rules in their source files; Harnix does not recommend duplicating them for a higher score.
+
+This is a discoverability heuristic, not semantic validation or a measure of completeness. Hidden-comment instructions cannot earn substantive-body credit. No headings or provider schema are required. `REVIEW.md` is not universally required: tool configuration, activation, branch rules, and supported includes vary by provider and are outside this assessment. A passing result does not establish provider consumption or effective reviews. Use `--only review-md` or `--skip review-md` to control this check.
+
+The shared body heuristic has a delimiter limitation: it can treat text between paired `---` lines later in a document as frontmatter too. Fenced examples (including indented and list/quote-contained examples) count toward visible body length. The include matcher accepts any standalone `@token` without whitespace, so it also classifies a bare `@handle` as an include-like reference; it does not establish that the token names a file. Bulleted or quoted `@path` text is local body text, not a standalone include directive. These rules can undercount section-separated prose or credit lengthy examples; they do not distinguish a short rule from a complete rulebook.
+
+#### Further reading
+
+- [Claude Code: Customize Code Review](https://code.claude.com/docs/en/code-review-customize) describes review-specific guidance, scoped files, includes, and provider consumption rules.
+- [Qodo: Apply REVIEW.md instructions to code review](https://docs.qodo.ai/governance/use-review-md) describes its provider-specific support and enablement.
 
 ### Design guidance
 

@@ -1,0 +1,12 @@
+id: review-md
+name: Review guidance
+category: documentation
+tier: nice-to-have
+description: >-
+  Detects an eligible root REVIEW.md and assesses visible local body content
+  as a discoverability signal, without validating provider consumption.
+tags:
+  - review
+  - REVIEW.md
+  - documentation
+applicableTo: all
